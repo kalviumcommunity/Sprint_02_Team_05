@@ -27,14 +27,88 @@ The Welcome screen features:
 
 ---
 
+## Responsive Layout Demo
+
+### Phone Portrait (390 × 844px)
+![Phone Portrait](loyalty_link/screenshots/responsive_phone_portrait.png)
+
+- Single-column layout with 2-column stats grid
+- Quick Actions wrap horizontally
+- Bottom navigation bar with 4 tabs
+
+### Phone Landscape (844 × 390px)
+![Phone Landscape](loyalty_link/screenshots/responsive_phone_landscape.png)
+
+- Layout adapts to wide two-column format with Recent Activity side panel
+- Stats grid uses horizontal space with side-by-side content
+- Settings icon appears in AppBar (tablet/landscape mode)
+
+### Tablet (1024 × 768px)
+![Tablet](loyalty_link/screenshots/responsive_tablet.png)
+
+- Two-column layout: Stats + Quick Actions on left, Recent Activity on right
+- Larger padding and font sizes for comfortable reading
+- Settings icon visible in AppBar
+
+---
+
+## Responsive Design – Code Snippets
+
+### MediaQuery for Device Detection
+
+```dart
+// Detect screen dimensions and orientation
+final screenWidth = MediaQuery.of(context).size.width;
+final screenHeight = MediaQuery.of(context).size.height;
+final isTablet = screenWidth > 600;
+final isLandscape = screenWidth > screenHeight;
+
+// Dynamically adjust sizing
+final titleSize = isTablet ? 28.0 : 22.0;
+final subtitleSize = isTablet ? 16.0 : 13.0;
+final cardPadding = isTablet ? 20.0 : 14.0;
+final horizontalPadding = isTablet ? 32.0 : 16.0;
+```
+
+### LayoutBuilder for Constraint-Based Layout Switching
+
+```dart
+LayoutBuilder(
+  builder: (context, constraints) {
+    if (constraints.maxWidth > 800) {
+      return _buildWideLayout(...);      // Two-column with side panel
+    } else if (constraints.maxWidth > 600) {
+      return _buildMediumLayout(...);    // Single column, 2-col grid
+    } else {
+      return _buildNarrowLayout(...);    // Phone layout
+    }
+  },
+)
+```
+
+### Adaptive Widgets Used
+
+| Widget | Purpose |
+|--------|---------|
+| `Expanded` + `Flexible` | Distribute space in Row/Column layouts proportionally |
+| `FittedBox` | Scale text down to fit available width without overflow |
+| `Wrap` | Auto-wrap Quick Action buttons onto new rows on narrow screens |
+| `GridView.builder` | Responsive stats grid (2-col on phone, 4-col in landscape) |
+| `LayoutBuilder` | Choose between narrow (<600px), medium (600-800px), and wide (>800px) layouts |
+| `MediaQuery` | Detect screen width, height, and orientation for dynamic sizing |
+| `AspectRatio` via `childAspectRatio` | Control stat card proportions across screen sizes |
+
+---
+
 ## Folder Structure
 
 ```
 loyalty_link/
 ├── lib/
-│   ├── main.dart          # Entry point – initializes MaterialApp & loads WelcomeScreen
+│   ├── main.dart          # Entry point – initializes MaterialApp & loads screens
 │   ├── screens/           # Individual UI screens (one file per screen)
-│   │   └── welcome_screen.dart  # Welcome/onboarding screen with stateful interaction
+│   │   ├── welcome_screen.dart      # Welcome/onboarding screen with stateful interaction
+│   │   └── responsive_home.dart     # Responsive dashboard with MediaQuery & LayoutBuilder
 │   ├── widgets/           # Reusable UI components (custom buttons, cards, etc.)
 │   ├── models/            # Data structures / classes (User, Customer, Reward)
 │   └── services/          # Business logic, Firebase integration, API calls
@@ -61,10 +135,10 @@ loyalty_link/
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| **Files** | `snake_case.dart` | `welcome_screen.dart`, `loyalty_card.dart` |
-| **Classes** | `PascalCase` | `WelcomeScreen`, `LoyaltyLinkApp` |
-| **Widgets** | `PascalCase` (same as classes – widgets are classes) | `WelcomeScreen`, `CustomerCard` |
-| **Variables & Functions** | `camelCase` | `_isJoined`, `_toggleJoin()` |
+| **Files** | `snake_case.dart` | `welcome_screen.dart`, `responsive_home.dart` |
+| **Classes** | `PascalCase` | `WelcomeScreen`, `ResponsiveHome` |
+| **Widgets** | `PascalCase` (same as classes) | `WelcomeScreen`, `CustomerCard` |
+| **Variables & Functions** | `camelCase` | `_isJoined`, `_buildWideLayout()` |
 | **Constants** | `camelCase` or `SCREAMING_SNAKE_CASE` | `primaryColor`, `MAX_POINTS` |
 | **Directories** | `lowercase` | `screens/`, `widgets/`, `models/` |
 
@@ -106,15 +180,25 @@ flutter run
 
 ### What I Learned About Dart & Flutter
 
-1. **Widget-based architecture** — Everything in Flutter is a widget. The UI is built by composing small, reusable widgets (`Text`, `Icon`, `Column`, `Scaffold`) into larger ones. This is fundamentally different from imperative UI frameworks.
+1. **Widget-based architecture** — Everything in Flutter is a widget. The UI is built by composing small, reusable widgets (`Text`, `Icon`, `Column`, `Scaffold`) into larger ones.
 
-2. **Stateful vs Stateless** — `StatelessWidget` is for static content; `StatefulWidget` + `setState()` is the mechanism for reactive UI updates. When state changes, Flutter efficiently rebuilds only the affected widgets.
+2. **Stateful vs Stateless** — `StatelessWidget` is for static content; `StatefulWidget` + `setState()` is the mechanism for reactive UI updates.
 
-3. **Dart syntax** — Dart is clean and strongly typed. Features like `const` constructors, named parameters, and null safety make code more predictable. The `=>` arrow syntax for one-liners keeps things concise.
+3. **Dart syntax** — Dart is clean and strongly typed. Features like `const` constructors, named parameters, and null safety make code predictable.
 
-4. **Hot reload** — Flutter's hot reload makes the development loop incredibly fast. Changes appear in under a second without losing app state.
+4. **Hot reload** — Changes appear in under a second without losing app state.
 
-5. **Material Design 3** — Flutter ships with `useMaterial3: true` for modern, polished components out of the box. Theming with `colorSchemeSeed` generates a full palette from a single color.
+5. **Material Design 3** — `useMaterial3: true` gives modern, polished components. `colorSchemeSeed` generates a full palette from one color.
+
+### Responsive Design Challenges & Learnings
+
+1. **Overflow handling** — The biggest challenge was preventing `RenderFlex` overflow errors on very small screens. Using `FittedBox`, `Flexible`, and `mainAxisSize: MainAxisSize.min` solved most cases.
+
+2. **Breakpoint strategy** — Choosing the right breakpoints (600px, 800px) required testing across multiple sizes. `LayoutBuilder` + `constraints.maxWidth` is more reliable than `MediaQuery` for nested widgets because it uses the actual available space, not the full screen width.
+
+3. **GridView aspect ratios** — `childAspectRatio` in `GridView` is critical for consistent card sizing across orientations. Landscape needed a 4-column grid while portrait worked best with 2 columns.
+
+4. **Real-world impact** — Responsive design ensures the app works for all users regardless of device. A small shopkeeper on a phone and a store manager on a tablet both get an optimized experience.
 
 ### How This Structure Helps Build Complex UIs
 
@@ -124,20 +208,11 @@ The modular folder structure (`screens/`, `widgets/`, `models/`, `services/`) cr
 - **Models** define the data contract independently of UI
 - **Services** can be swapped (e.g., mock data → Firebase) without touching UI code
 
-This pattern scales well — adding a new feature (e.g., Customer Profile screen) is just adding a new file in `screens/` and composing existing widgets and services.
-
 ---
 
 ## Problem Statement
 
 Small businesses in **Tier-2 and Tier-3 towns** struggle to build customer loyalty because they lack simple and affordable tools to track repeat customers or maintain reward programs.
-
-Most of these businesses rely on **manual methods such as paper punch cards or memory**, which leads to:
-
-- Lost loyalty records
-- Poor customer tracking
-- No insights about repeat customers
-- Difficulty managing reward programs
 
 ### Key Question
 
@@ -147,36 +222,7 @@ How might we support small businesses with a **modern digital loyalty experience
 
 ## Solution Overview
 
-We propose **LoyaltyLink**, a mobile application built with **Flutter and Firebase** that enables small businesses to manage digital loyalty programs easily.
-
-The app allows businesses to:
-
-- Track repeat customers
-- Assign loyalty points
-- Create reward programs
-- Monitor customer visits
-
-Customers can:
-
-- Earn loyalty points
-- Track reward progress
-- Redeem rewards directly through the mobile app
-
-This replaces traditional paper loyalty cards with a **mobile-first experience**.
-
----
-
-## Target Users
-
-### Primary Users
-- Small shop owners
-- Cafes
-- Grocery stores
-- Salons
-- Local retailers
-
-### Secondary Users
-- Customers who frequently visit these businesses
+**LoyaltyLink** enables small businesses to manage digital loyalty programs — tracking repeat customers, assigning loyalty points, creating reward programs, and monitoring visits — all from a mobile app.
 
 ---
 
@@ -194,210 +240,52 @@ This replaces traditional paper loyalty cards with a **mobile-first experience**
 
 ---
 
-## System Architecture
-
-```
-Flutter Mobile App
-        │
-        ▼
-Firebase Authentication
-        │
-        ▼
-Cloud Firestore Database
-        │
-        ▼
-Google Cloud Infrastructure
-```
-
-Flutter handles the **user interface**, while Firebase provides **authentication, database, and cloud infrastructure**.
-
----
-
 ## App User Flow
 
 ```
-User opens app
-      │
-      ▼
-Splash Screen
-      │
-      ▼
-Login / Signup
-      │
-      ▼
-Dashboard
-      │
- ┌────┴─────┐
- ▼          ▼
-Customers   Rewards
- │          │
- ▼          ▼
-Add Points  Redeem Rewards
+User opens app → Splash Screen → Login/Signup → Dashboard
+                                                    │
+                                             ┌──────┴──────┐
+                                             ▼             ▼
+                                          Customers     Rewards
+                                             │             │
+                                             ▼             ▼
+                                          Add Points   Redeem Rewards
 ```
 
 ---
 
 ## MVP Features
 
-### Authentication
-- Sign Up
-- Login
-- Logout
-
-### Customer Management
-- Add customer
-- View customer list
-- Store customer data in Firestore
-
-### Loyalty Points System
-- Add loyalty points
-- Track customer points balance
-
-### Rewards System
-- Create rewards
-- Redeem reward points
-
-### Core Screens
-- Splash Screen
-- Login / Signup Screen
-- Dashboard
-- Customers Page
-- Rewards Page
-- Profile Page
-
----
-
-## Firestore Database Schema
-
-### Users Collection
-
-```
-users
-   │
-   ├── userId
-   │     ├── name
-   │     ├── email
-   │     ├── phone
-   │     └── role (business / customer)
-```
-
-### Customers Collection
-
-```
-customers
-   │
-   ├── customerId
-   │     ├── name
-   │     ├── phone
-   │     ├── points
-   │     └── visitCount
-```
-
-### Rewards Collection
-
-```
-rewards
-   │
-   ├── rewardId
-   │     ├── rewardName
-   │     ├── pointsRequired
-   │     └── description
-```
+- **Authentication**: Sign Up, Login, Logout
+- **Customer Management**: Add/view customers, Firestore storage
+- **Loyalty Points**: Add and track point balances
+- **Rewards**: Create rewards, redeem points
+- **Core Screens**: Splash, Login, Dashboard, Customers, Rewards, Profile
 
 ---
 
 ## Sprint Timeline (4 Weeks)
 
-### Week 1 – Setup & Design
-- Finalize app concept
-- Create UI wireframes
-- Setup Flutter project
-- Setup Firebase project
-- Configure Firestore database
-
-### Week 2 – Core Development
-- Implement login and signup
-- Build dashboard UI
-- Add customer profile screen
-- Implement Firestore read/write operations
-
-### Week 3 – Integration & Testing
-- Connect UI with Firestore
-- Implement reward redemption
-- Add form validation
-- Test CRUD operations
-
-### Week 4 – MVP Completion
-- UI polish
-- Bug fixes
-- Application testing
-- APK generation
-- Documentation and demo preparation
-
----
-
-## Testing Strategy
-
-### Automated Testing
-Flutter widget testing framework.
-
-### Manual Testing
-- Login flow
-- Customer data entry
-- Loyalty points tracking
-- Reward redemption
-
-### Device Testing
-Testing across multiple Android devices.
-
----
-
-## Deployment Plan
-
-- Code repository hosted on **GitHub**
-- **GitHub Actions** used for CI/CD
-- APK build generated for testing
-- Optional web deployment using **Firebase Hosting**
-
----
-
-## Success Metrics
-
-The sprint will be successful if:
-
-- All **MVP features are implemented**
-- Firebase **Auth + Firestore integration works**
-- Application builds successfully as an **APK**
-- Demo works without major bugs
-- Mentor review feedback is positive
+| Week | Focus |
+|------|-------|
+| 1 | Setup & Design – wireframes, Flutter & Firebase project setup |
+| 2 | Core Development – auth, dashboard, customer profiles, Firestore |
+| 3 | Integration & Testing – UI + Firestore, rewards, validation |
+| 4 | MVP Completion – polish, bug fixes, APK generation, demo prep |
 
 ---
 
 ## Risks & Mitigation
 
-| Risk | Impact | Mitigation |
-|-----|------|------|
-| Firebase configuration issues | Backend delays | Use mock data until Firebase setup works |
-| UI bugs | App instability | Modular UI testing |
-| Database schema mistakes | Data errors | Plan Firestore structure before development |
+| Risk | Mitigation |
+|-----|------|
+| Firebase config issues | Use mock data until Firebase works |
+| UI bugs | Modular widget testing |
+| Schema mistakes | Plan Firestore structure before dev |
 
 ---
 
 ## Future Improvements
 
-Features planned beyond MVP:
-
-- Push notifications
-- QR code scanning for visits
-- Business analytics dashboard
-- Multi-language support
-- Payment integration
-- Referral rewards system
-
----
-
-## Final Vision
-
-LoyaltyLink aims to **empower small businesses with simple digital tools** to build stronger relationships with their customers.
-
-By replacing traditional loyalty cards with a **mobile-first solution powered by Flutter and Firebase**, businesses can increase customer retention while providing a seamless digital experience.
+Push notifications · QR code scanning · Analytics dashboard · Multi-language · Payment integration · Referral rewards

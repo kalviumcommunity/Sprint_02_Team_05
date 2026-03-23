@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/responsive_home.dart';
 
 /// Entry point of the LoyaltyLink application.
 void main() {
@@ -20,7 +20,7 @@ class LoyaltyLinkApp extends StatelessWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
       ),
-      home: const WelcomeScreen(),
+      home: const ResponsiveHome(),
     );
   }
 }
