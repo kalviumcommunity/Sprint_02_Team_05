@@ -1,156 +1,150 @@
-# Hot Reload, Debug Console & Flutter DevTools – LoyaltyLink
+# Multi-Screen Navigation – LoyaltyLink
 
-## Sprint #2 – Development Tools Demonstration  
+## Sprint #2 – Structuring Navigation Using Navigator & Routes  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-This document demonstrates three essential Flutter development tools — **Hot Reload**, **Debug Console**, and **Flutter DevTools** — using the LoyaltyLink project. These tools accelerate development, simplify debugging, and help optimize app performance.
+LoyaltyLink uses **Navigator** with both **named routes** and **push-based navigation** to manage multi-screen transitions. The app contains 5 screens connected by a logical navigation flow — from authentication to the main dashboard.
 
 ---
 
-## 1. Hot Reload
+## Navigation Architecture
 
-### What It Does
-Hot Reload injects updated Dart code into a running app **in under 1 second**, without losing app state. No restart needed.
+```
+App Launch → Firebase Init → Auth State Check
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+            Login Screen (/login)          Dashboard Screen (/dashboard)
+                    │                               │
+                    ▼                               ▼
+            Signup Screen (/signup)            Logout → Login
+                    │
+                    ▼
+            Dashboard Screen (/dashboard)
+```
 
-### How to Use
-1. Run the app: `flutter run -d emulator-5554`
-2. Edit a widget (e.g., change text or color)
-3. Press `r` in the terminal (or save the file in VS Code)
-4. The change appears instantly on the emulator
+---
 
-### Example: Changing Text via Hot Reload
+## Named Routes in main.dart
 
 ```dart
-// Before Hot Reload
-Text('Welcome to LoyaltyLink');
+MaterialApp(
+  // Named routes map — each route name maps to a screen widget
+  routes: {
+    '/login':     (context) => const LoginScreen(),
+    '/signup':    (context) => const SignupScreen(),
+    '/dashboard': (context) => const DashboardScreen(),
+    '/welcome':   (context) => const WelcomeScreen(),
+    '/home':      (context) => const ResponsiveHome(),
+  },
 
-// After Hot Reload (just change the string and press 'r')
-Text('Welcome to Hot Reload!');
+  // Initial screen determined by auth state
+  home: StreamBuilder<User?>(
+    stream: FirebaseAuth.instance.authStateChanges(),
+    builder: (context, snapshot) {
+      if (snapshot.hasData) return const DashboardScreen();
+      return const LoginScreen();
+    },
+  ),
+);
 ```
-
-The updated text appears immediately without restarting the app or losing navigation state.
-
-### Screenshot
-*(Take a screenshot showing your app after a Hot Reload change)*
-
-![Hot Reload](loyalty_link/screenshots/hot_reload_demo.png)
 
 ---
 
-## 2. Debug Console
+## Navigation Methods Used
 
-### What It Does
-The Debug Console displays runtime logs, error messages, and `debugPrint()` output in real time.
+### 1. `Navigator.pushReplacement()` – Replace current screen
 
-### How to Use
-Add `debugPrint()` statements in your code to trace execution:
+Used for login → dashboard (no back button to login after signing in):
 
 ```dart
-void _toggleJoin() {
-  setState(() {
-    _isJoined = !_isJoined;
-    debugPrint('🔄 State changed: _isJoined = $_isJoined');
-  });
-}
-
-Future<void> _handleLogin() async {
-  debugPrint('📧 Login attempt: ${_emailController.text}');
-  try {
-    final user = await _auth.login(email, password);
-    debugPrint('✅ Login successful: ${user?.uid}');
-  } catch (e) {
-    debugPrint('❌ Login failed: $e');
-  }
-}
+// In login_screen.dart – after successful login
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(builder: (_) => const DashboardScreen()),
+);
 ```
 
-### Why `debugPrint()` over `print()`?
-- `debugPrint()` auto-wraps long lines and throttles output to avoid dropped messages
-- `print()` can overflow the console buffer on fast-executing loops
-- Both are stripped from release builds automatically
+### 2. `Navigator.pushNamed()` – Navigate by route name
 
-### Screenshot
-*(Take a screenshot showing the Debug Console with log output)*
+Used for navigating between screens using route strings:
 
-![Debug Console](loyalty_link/screenshots/debug_console.png)
+```dart
+// Navigate to signup using named route
+Navigator.pushNamed(context, '/signup');
+
+// Navigate to dashboard
+Navigator.pushNamed(context, '/dashboard');
+```
+
+### 3. `Navigator.pop()` – Go back to previous screen
+
+Used for returning to the previous screen:
+
+```dart
+// In second_screen or dialogs
+Navigator.pop(context);
+```
+
+### 4. Auth-based routing with StreamBuilder
+
+The app automatically routes based on login state:
+
+```dart
+StreamBuilder<User?>(
+  stream: FirebaseAuth.instance.authStateChanges(),
+  builder: (context, snapshot) {
+    if (snapshot.hasData) return const DashboardScreen();  // Logged in
+    return const LoginScreen();                             // Not logged in
+  },
+)
+```
 
 ---
 
-## 3. Flutter DevTools
+## Screen-by-Screen Navigation
 
-### What It Does
-A browser-based suite for inspecting widgets, profiling performance, monitoring memory, and tracking network requests.
-
-### How to Launch
-
-```bash
-# Option 1: From terminal while app is running
-flutter pub global activate devtools
-flutter pub global run devtools
-
-# Option 2: From VS Code
-# Run app in debug mode → Cmd+Shift+P → "Dart: Open DevTools"
-
-# Option 3: From the URL shown in terminal when running the app
-# "The Flutter DevTools debugger and profiler is available at: http://127.0.0.1:XXXXX"
-```
-
-### Key Features
-
-| Tab | Purpose |
-|-----|---------|
-| **Widget Inspector** | Visualize the widget tree, select widgets, see properties and constraints |
-| **Performance** | View frame rendering times, identify jank, analyze build/paint phases |
-| **Memory** | Track memory usage, detect leaks, see allocation timeline |
-| **Network** | Monitor HTTP requests (Firestore reads, API calls) |
-| **Logging** | Structured log viewer with filtering |
-
-### Widget Inspector Example
-The Widget Inspector shows the full widget tree hierarchy. You can:
-- Click any widget to see its properties (padding, constraints, colors)
-- Toggle "Select Widget Mode" to tap widgets directly on the emulator
-- View render object details (size, position, overflow)
-
-### Screenshot
-*(Take a screenshot of Flutter DevTools with the Widget Inspector open)*
-
-![DevTools](loyalty_link/screenshots/devtools_inspector.png)
+| Screen | Route | Navigates To | Method |
+|--------|-------|-------------|--------|
+| **LoginScreen** | `/login` | Dashboard (on success), Signup (link) | `pushReplacement` |
+| **SignupScreen** | `/signup` | Dashboard (on success), Login (link) | `pushReplacement` |
+| **DashboardScreen** | `/dashboard` | Login (on logout) | `pushReplacement` |
+| **WelcomeScreen** | `/welcome` | — (standalone) | — |
+| **ResponsiveHome** | `/home` | — (standalone) | — |
 
 ---
 
-## Combined Workflow
+## Screenshots
 
-Here's how all three tools work together in a typical development session:
+### Login Screen
+*(Add screenshot of login screen)*
 
-```
-1. Run app                    → flutter run -d emulator-5554
-2. Make UI change             → Edit widget text/color in code
-3. Hot Reload                 → Press 'r' → see change instantly
-4. Debug a bug                → Add debugPrint() → check Debug Console
-5. Profile performance        → Open DevTools → Performance tab
-6. Inspect widget tree        → Open DevTools → Widget Inspector
-7. Check memory               → Open DevTools → Memory tab
-```
+![Login](loyalty_link/screenshots/nav_login.png)
+
+### Signup Screen
+*(Add screenshot of signup screen)*
+
+![Signup](loyalty_link/screenshots/nav_signup.png)
+
+### Dashboard Screen (after login)
+*(Add screenshot of dashboard)*
+
+![Dashboard](loyalty_link/screenshots/nav_dashboard.png)
 
 ---
 
 ## Reflection
 
-### How does Hot Reload improve productivity?
-Hot Reload delivers **sub-second UI iteration**. Instead of rebuilding the app (30+ seconds for Gradle), you see changes in ~200ms. This means you can experiment with colors, layouts, and text dozens of times per minute — making UI development feel as fast as editing a website.
+### How does Navigator manage the app's stack of screens?
+Navigator maintains a **stack** (LIFO — last in, first out) of routes. `push()` adds a screen on top, `pop()` removes the top screen and returns to the previous one, and `pushReplacement()` replaces the current screen entirely (preventing back navigation). This stack model mirrors how users naturally move through app flows.
 
-### Why is DevTools useful for debugging and optimization?
-- **Widget Inspector** shows exactly which widget caused an overflow or layout error
-- **Performance tab** identifies frames that take too long (jank), pinpointing the exact widget responsible
-- **Memory tab** catches memory leaks before they cause crashes in production
-- **Network tab** monitors Firestore reads/writes, helping optimize database usage
-
-### How can these tools help in team workflows?
-1. **Consistency** — all team members use the same debugging tools regardless of IDE
-2. **Code reviews** — `debugPrint()` logs can be shared to explain runtime behavior
-3. **Performance budgets** — DevTools helps enforce frame rate targets (60fps) across the team
-4. **Rapid prototyping** — Hot Reload lets designers and developers iterate on UI together in real time
+### What are the benefits of named routes in larger applications?
+1. **Centralized routing** — all routes defined in one place (`main.dart`), making it easy to see the full app structure
+2. **String-based navigation** — `pushNamed('/dashboard')` is cleaner and more readable than importing screen classes everywhere
+3. **Deep linking** — named routes map naturally to URL paths for web apps
+4. **Maintainability** — changing a screen class only requires updating the route map, not every file that navigates to it
+5. **Team collaboration** — developers can reference route names without knowing implementation details
