@@ -1,188 +1,123 @@
-# Reusable Custom Widgets – LoyaltyLink
+# Responsive Design with MediaQuery & LayoutBuilder – LoyaltyLink
 
-## Sprint #2 – Creating Modular, Reusable Custom Widgets  
+## Sprint #2 – Using MediaQuery and LayoutBuilder for Responsive Design  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-LoyaltyLink uses custom reusable widgets stored in `lib/widgets/` to maintain **consistent design** and **reduce code duplication** across all screens. Three custom widgets are defined and reused across login, signup, and dashboard.
+LoyaltyLink's dashboard (`responsive_home.dart`) combines **MediaQuery** and **LayoutBuilder** to create a fully responsive layout that adapts across phone portrait, phone landscape, and tablet screen sizes.
 
 ---
 
-## Custom Widgets Created
+## MediaQuery – Device-Level Screen Info
 
-### 1. `StyledButton` — Reusable Action Button
-
-A button with loading state, icon support, customizable colors, and full-width mode.
+`MediaQuery` provides device dimensions used for global layout decisions:
 
 ```dart
-// lib/widgets/styled_button.dart
-class StyledButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final Color backgroundColor;
-  final IconData? icon;
-  final bool fullWidth;
+final screenWidth = MediaQuery.of(context).size.width;
+final screenHeight = MediaQuery.of(context).size.height;
+final isTablet = screenWidth > 600;
+final isLandscape = screenWidth > screenHeight;
 
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: isLoading ? null : onPressed,
-      child: isLoading
-          ? CircularProgressIndicator(strokeWidth: 2)
-          : Row(children: [
-              if (icon != null) Icon(icon),
-              Text(label),
-            ]),
-    );
-  }
-}
+// Dynamic sizing based on device
+final horizontalPadding = isTablet ? 24.0 : 16.0;
+final titleFontSize = isTablet ? 26.0 : 20.0;
+final cardPadding = isTablet ? 20.0 : 14.0;
 ```
 
-**Reused in:**
-| Screen | Usage |
-|--------|-------|
-| Login | `StyledButton(label: 'Login', isLoading: _loading, onPressed: _handleLogin)` |
-| Signup | `StyledButton(label: 'Sign Up', isLoading: _loading, onPressed: _handleSignUp)` |
-| Dashboard | `StyledButton(label: 'Add Customer', icon: Icons.add, onPressed: _addCustomer)` |
+**Use case:** Adjusting padding, font sizes, and spacing globally based on device type.
 
 ---
 
-### 2. `StyledTextField` — Reusable Form Input
+## LayoutBuilder – Constraint-Based Layout Switching
 
-A styled `TextFormField` with consistent borders, colors, icons, and validation support.
+`LayoutBuilder` provides the **actual available width** (from parent constraints) and switches between entirely different layouts:
 
 ```dart
-// lib/widgets/styled_text_field.dart
-class StyledTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hintText;
-  final IconData prefixIcon;
-  final bool obscureText;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        hintText: hintText,
-        prefixIcon: Icon(prefixIcon),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      validator: validator,
-    );
-  }
-}
+LayoutBuilder(
+  builder: (context, constraints) {
+    if (constraints.maxWidth > 800) {
+      return _buildWideLayout(constraints);   // Two-column Row
+    } else if (constraints.maxWidth > 600) {
+      return _buildMediumLayout(constraints); // Single column, wider grid
+    } else {
+      return _buildNarrowLayout(constraints); // Phone layout
+    }
+  },
+)
 ```
 
-**Reused in:**
-| Screen | Fields |
-|--------|--------|
-| Signup | Name, Email, Password (3 instances) |
-| Login | Email, Password (2 instances) |
-| Dashboard | Customer Name, Phone, Points (3 instances in dialog) |
-
----
-
-### 3. `GradientCard` — Reusable Info Card
-
-A card with gradient background, icon, title, subtitle, and optional tap action.
-
+### Narrow Layout (< 600px) — Phone Portrait
 ```dart
-// lib/widgets/gradient_card.dart
-class GradientCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(colors: [iconColor.withAlpha(0.3), iconColor.withAlpha(0.1)]),
-      ),
-      child: Row(children: [
-        CircleAvatar(child: Icon(icon, color: iconColor)),
-        Column(children: [Text(title), Text(subtitle)]),
-        if (onTap != null) Icon(Icons.chevron_right),
-      ]),
-    );
-  }
-}
+Column(children: [
+  _buildWelcomeBanner(horizontalPadding, cardPadding),
+  GridView.builder(crossAxisCount: 2, ...),  // 2-column stats
+  Wrap(children: actionButtons),              // Wrapping buttons
+])
 ```
 
-**Reused in:**
-| Screen | Usage |
-|--------|-------|
-| Dashboard | Welcome banner card |
-| Responsive Home | Stats overview card |
-| Demo | Info display cards |
-
----
-
-## Widget Folder Structure
-
-```
-lib/
-├── widgets/
-│   ├── gradient_card.dart       # Reusable gradient info card
-│   ├── styled_button.dart       # Reusable button with loading state
-│   └── styled_text_field.dart   # Reusable form input field
-├── screens/
-│   ├── login_screen.dart        # Uses StyledButton, StyledTextField
-│   ├── signup_screen.dart       # Uses StyledButton, StyledTextField
-│   └── dashboard_screen.dart    # Uses StyledButton, GradientCard
-```
-
----
-
-## How Widgets Are Imported and Reused
-
+### Wide Layout (> 800px) — Tablet
 ```dart
-// In any screen:
-import '../widgets/styled_button.dart';
-import '../widgets/styled_text_field.dart';
-import '../widgets/gradient_card.dart';
-
-// Usage — same widget, different data:
-StyledButton(label: 'Login', onPressed: _login),
-StyledButton(label: 'Sign Up', onPressed: _signup, backgroundColor: Colors.green),
-StyledButton(label: 'Add', icon: Icons.add, onPressed: _add, fullWidth: false),
+Row(children: [
+  Expanded(flex: 3, child: Column(children: [
+    _buildWelcomeBanner(...),
+    GridView.builder(crossAxisCount: 2, ...),
+  ])),
+  Expanded(flex: 2, child: _buildActivityPanel()),  // Side panel
+])
 ```
+
+---
+
+## MediaQuery vs LayoutBuilder
+
+| Feature | MediaQuery | LayoutBuilder |
+|---------|-----------|---------------|
+| **What it provides** | Full screen width/height | Available space from parent |
+| **Scope** | Global device info | Local widget constraints |
+| **Best for** | Font sizes, padding, detecting device type | Switching between layout structures |
+| **When to use** | Styling adjustments | Conditional layout trees |
+| **Example** | `screenWidth > 600 ? 24px : 16px` padding | `maxWidth > 800 ? Row(...) : Column(...)` |
+
+**Use BOTH together:** MediaQuery for proportional sizing, LayoutBuilder for structural layout changes.
+
+---
+
+## Responsive Breakpoints
+
+| Screen Width | Device | Layout | Grid Cols | Side Panel |
+|-------------|--------|--------|-----------|------------|
+| < 600px | Phone Portrait | Column | 2 | Hidden |
+| 600–800px | Phone Landscape | Column | 4 | Hidden |
+| > 800px | Tablet | Row (3:2) | 2 | Visible |
 
 ---
 
 ## Screenshots
 
-### StyledButton reused on Login & Signup
-*(Add screenshots showing the same button style on both screens)*
+### Phone (< 600px)
+![Phone Portrait](loyalty_link/screenshots/responsive_phone_portrait.png)
 
-![Login](loyalty_link/screenshots/widget_login.png)
-![Signup](loyalty_link/screenshots/widget_signup.png)
+### Phone Landscape (600–800px)
+![Phone Landscape](loyalty_link/screenshots/responsive_phone_landscape.png)
+
+### Tablet (> 800px)
+![Tablet](loyalty_link/screenshots/responsive_tablet.png)
 
 ---
 
 ## Reflection
 
-### How do reusable widgets improve development efficiency?
-Instead of copying 20+ lines of button styling into every screen, we define it **once** in `StyledButton` and reuse it everywhere. Changing the border radius or color in one file updates **all** buttons across the app instantly.
+### Why is responsiveness important in mobile development?
+Users access apps on ~20,000 different Android devices with varying screen sizes. A fixed-width layout that works on a Pixel 7 will overflow on an older 4.5" phone and waste space on a 10" tablet. Responsive design ensures every user gets a usable, visually balanced experience.
 
-### What challenges did you face designing modular components?
-- **Flexibility vs simplicity** — making widgets configurable enough (via parameters) without over-engineering them with too many options
-- **Default values** — choosing sensible defaults so widgets work with minimal configuration while still being customizable
+### How does LayoutBuilder differ from MediaQuery?
+- **MediaQuery** gives the **device's full screen** dimensions — useful for global decisions
+- **LayoutBuilder** gives the **parent's available space** — useful for widgets that might be in a sidebar, dialog, or split view where screen width ≠ available width
 
-### How could your team apply this approach?
-- Create a shared `widgets/` folder with team-agreed components
-- New screens only import existing widgets — no inline styling
-- Design changes are made in one file, reflected everywhere
-- PR reviews are faster because screens contain less boilerplate
+### How could your team use these tools to scale efficiently?
+- Define shared breakpoints (600px, 800px) as constants
+- Create a `ResponsiveWrapper` widget that auto-switches between mobile/tablet layouts
+- Use MediaQuery for theming (larger fonts on tablets) and LayoutBuilder for structure (column vs row)
