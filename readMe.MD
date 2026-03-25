@@ -11,92 +11,129 @@
 
 ---
 
-## Demo
+## Firebase Integration
 
-### Welcome Screen – Initial State
-![Welcome Screen - Initial](loyalty_link/screenshots/welcome_initial.png)
+### Features Implemented
+- **Firebase Authentication** – Email/password sign-up, login, and logout
+- **Cloud Firestore** – Real-time CRUD operations for customer management
+- **Auth State Routing** – Automatic redirect based on login status using `StreamBuilder`
+- **Real-Time Updates** – Customer list updates instantly via Firestore snapshots
 
-### Welcome Screen – After Tapping "Get Started"
-![Welcome Screen - Joined](loyalty_link/screenshots/welcome_joined.png)
+### Firebase Setup Steps
 
-The Welcome screen features:
-- A **gradient background** (purple → dark navy)
-- A **loyalty tag icon** that transforms into a **green heart** on interaction
-- **Animated text transitions** between "Welcome to LoyaltyLink" and "Welcome aboard! 🎉"
-- A **stateful button** that toggles between "Get Started" and "Joined ✓"
-
----
-
-## Responsive Layout Demo
-
-### Phone Portrait (390 × 844px)
-![Phone Portrait](loyalty_link/screenshots/responsive_phone_portrait.png)
-
-- Single-column layout with 2-column stats grid
-- Quick Actions wrap horizontally
-- Bottom navigation bar with 4 tabs
-
-### Phone Landscape (844 × 390px)
-![Phone Landscape](loyalty_link/screenshots/responsive_phone_landscape.png)
-
-- Layout adapts to wide two-column format with Recent Activity side panel
-- Stats grid uses horizontal space with side-by-side content
-- Settings icon appears in AppBar (tablet/landscape mode)
-
-### Tablet (1024 × 768px)
-![Tablet](loyalty_link/screenshots/responsive_tablet.png)
-
-- Two-column layout: Stats + Quick Actions on left, Recent Activity on right
-- Larger padding and font sizes for comfortable reading
-- Settings icon visible in AppBar
+1. Created Firebase project (`loyalty-link-9add2`) in Firebase Console
+2. Ran `flutterfire configure` to generate `firebase_options.dart` and `google-services.json`
+3. Added dependencies to `pubspec.yaml`:
+   ```yaml
+   firebase_core: ^3.0.0
+   firebase_auth: ^5.0.0
+   cloud_firestore: ^5.0.0
+   ```
+4. Initialized Firebase in `main.dart`:
+   ```dart
+   void main() async {
+     WidgetsFlutterBinding.ensureInitialized();
+     await Firebase.initializeApp(
+       options: DefaultFirebaseOptions.currentPlatform,
+     );
+     runApp(const LoyaltyLinkApp());
+   }
+   ```
+5. Enabled Email/Password authentication in Firebase Console
+6. Created Firestore Database in test mode
 
 ---
 
-## Responsive Design – Code Snippets
+## Code Snippets
 
-### MediaQuery for Device Detection
+### Authentication Service (`auth_service.dart`)
 
 ```dart
-// Detect screen dimensions and orientation
-final screenWidth = MediaQuery.of(context).size.width;
-final screenHeight = MediaQuery.of(context).size.height;
-final isTablet = screenWidth > 600;
-final isLandscape = screenWidth > screenHeight;
+/// Sign up a new user with email and password
+Future<User?> signUp(String email, String password) async {
+  try {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return credential.user;
+  } on FirebaseAuthException catch (e) {
+    throw _authError(e);
+  }
+}
 
-// Dynamically adjust sizing
-final titleSize = isTablet ? 28.0 : 22.0;
-final subtitleSize = isTablet ? 16.0 : 13.0;
-final cardPadding = isTablet ? 20.0 : 14.0;
-final horizontalPadding = isTablet ? 32.0 : 16.0;
+/// Log in an existing user
+Future<User?> login(String email, String password) async {
+  final credential = await _auth.signInWithEmailAndPassword(
+    email: email,
+    password: password,
+  );
+  return credential.user;
+}
 ```
 
-### LayoutBuilder for Constraint-Based Layout Switching
+### Firestore CRUD (`firestore_service.dart`)
 
 ```dart
-LayoutBuilder(
-  builder: (context, constraints) {
-    if (constraints.maxWidth > 800) {
-      return _buildWideLayout(...);      // Two-column with side panel
-    } else if (constraints.maxWidth > 600) {
-      return _buildMediumLayout(...);    // Single column, 2-col grid
-    } else {
-      return _buildNarrowLayout(...);    // Phone layout
+/// Create – add a customer
+Future<DocumentReference> addCustomer(String ownerUid, Map<String, dynamic> data) async {
+  return _db.collection('users').doc(ownerUid).collection('customers').add(data);
+}
+
+/// Read – real-time stream of customers
+Stream<QuerySnapshot> getCustomers(String ownerUid) {
+  return _db.collection('users').doc(ownerUid).collection('customers').snapshots();
+}
+
+/// Update – modify a customer
+Future<void> updateCustomer(String ownerUid, String customerId, Map<String, dynamic> data) async {
+  await _db.collection('users').doc(ownerUid).collection('customers').doc(customerId).update(data);
+}
+
+/// Delete – remove a customer
+Future<void> deleteCustomer(String ownerUid, String customerId) async {
+  await _db.collection('users').doc(ownerUid).collection('customers').doc(customerId).delete();
+}
+```
+
+### StreamBuilder for Real-Time Data (`dashboard_screen.dart`)
+
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: _firestore.getCustomers(user.uid),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+      return Center(child: Text('No customers yet.'));
     }
+    final docs = snapshot.data!.docs;
+    return ListView.builder(
+      itemCount: docs.length,
+      itemBuilder: (_, i) {
+        final data = docs[i].data() as Map<String, dynamic>;
+        return ListTile(
+          title: Text(data['name']),
+          subtitle: Text('⭐ ${data['points']} pts'),
+        );
+      },
+    );
   },
 )
 ```
 
-### Adaptive Widgets Used
+---
 
-| Widget | Purpose |
-|--------|---------|
-| `Expanded` + `Flexible` | Distribute space in Row/Column layouts proportionally |
-| `FittedBox` | Scale text down to fit available width without overflow |
-| `Wrap` | Auto-wrap Quick Action buttons onto new rows on narrow screens |
-| `GridView.builder` | Responsive stats grid (2-col on phone, 4-col in landscape) |
-| `LayoutBuilder` | Choose between narrow (<600px), medium (600-800px), and wide (>800px) layouts |
-| `MediaQuery` | Detect screen width, height, and orientation for dynamic sizing |
-| `AspectRatio` via `childAspectRatio` | Control stat card proportions across screen sizes |
+## Demo
+
+### Welcome Screen
+![Welcome Screen - Initial](loyalty_link/screenshots/welcome_initial.png)
+![Welcome Screen - Joined](loyalty_link/screenshots/welcome_joined.png)
+
+### Responsive Layout
+![Phone Portrait](loyalty_link/screenshots/responsive_phone_portrait.png)
+![Tablet](loyalty_link/screenshots/responsive_tablet.png)
+
+### Firebase Screenshots
+*(Add screenshots after testing: signup flow, login, dashboard with customers, Firebase Console)*
 
 ---
 
@@ -105,124 +142,72 @@ LayoutBuilder(
 ```
 loyalty_link/
 ├── lib/
-│   ├── main.dart          # Entry point – initializes MaterialApp & loads screens
-│   ├── screens/           # Individual UI screens (one file per screen)
-│   │   ├── welcome_screen.dart      # Welcome/onboarding screen with stateful interaction
-│   │   └── responsive_home.dart     # Responsive dashboard with MediaQuery & LayoutBuilder
-│   ├── widgets/           # Reusable UI components (custom buttons, cards, etc.)
-│   ├── models/            # Data structures / classes (User, Customer, Reward)
-│   └── services/          # Business logic, Firebase integration, API calls
-├── test/
-│   └── widget_test.dart   # Widget tests for UI verification
-├── android/               # Android-specific configuration and build files
-├── ios/                   # iOS-specific configuration (Xcode project)
-├── web/                   # Web-specific configuration (index.html, manifest)
-├── screenshots/           # App screenshots for documentation
-├── pubspec.yaml           # Project dependencies and metadata
-└── README.md              # Project documentation
-```
-
-### How This Structure Supports Modular App Design
-
-| Directory | Purpose |
-|-----------|---------|
-| `lib/screens/` | Each screen is a self-contained widget in its own file. This makes navigation and routing straightforward as the app grows. |
-| `lib/widgets/` | Shared UI components (e.g., a branded button or loyalty card widget) are extracted here to avoid duplication across screens. |
-| `lib/models/` | Dart classes that define data shapes (e.g., `Customer`, `Reward`). Keeping models separate decouples data from UI. |
-| `lib/services/` | Firebase Auth, Firestore CRUD, and any API logic lives here. This separation makes it easy to swap or mock backends for testing. |
-
-### Naming Conventions
-
-| Element | Convention | Example |
-|---------|-----------|---------|
-| **Files** | `snake_case.dart` | `welcome_screen.dart`, `responsive_home.dart` |
-| **Classes** | `PascalCase` | `WelcomeScreen`, `ResponsiveHome` |
-| **Widgets** | `PascalCase` (same as classes) | `WelcomeScreen`, `CustomerCard` |
-| **Variables & Functions** | `camelCase` | `_isJoined`, `_buildWideLayout()` |
-| **Constants** | `camelCase` or `SCREAMING_SNAKE_CASE` | `primaryColor`, `MAX_POINTS` |
-| **Directories** | `lowercase` | `screens/`, `widgets/`, `models/` |
-
----
-
-## Setup Instructions
-
-### Prerequisites
-- **Flutter SDK** (3.x or later) — [Install Guide](https://docs.flutter.dev/get-started/install)
-- **Android Studio** with Flutter & Dart plugins — OR — **VS Code** with Flutter extension
-- An Android emulator, iOS simulator, or Chrome browser
-
-### Steps to Run
-
-```bash
-# 1. Verify Flutter installation
-flutter doctor
-
-# 2. Clone the repository
-git clone <repo-url>
-cd Sprint_02_Team_05/loyalty_link
-
-# 3. Install dependencies
-flutter pub get
-
-# 4. Run on Chrome (easiest)
-flutter run -d chrome
-
-# 5. Or run on Android emulator
-flutter run -d emulator-5554
-
-# 6. Or run on a connected physical device
-flutter run
+│   ├── main.dart                    # Entry point with Firebase init + auth routing
+│   ├── firebase_options.dart        # Generated by FlutterFire CLI
+│   ├── screens/
+│   │   ├── welcome_screen.dart      # Welcome/onboarding screen
+│   │   ├── responsive_home.dart     # Responsive dashboard layout
+│   │   ├── signup_screen.dart       # Email/password sign-up form
+│   │   ├── login_screen.dart        # Email/password login form
+│   │   └── dashboard_screen.dart    # Customer CRUD with Firestore
+│   ├── widgets/                     # Reusable UI components
+│   ├── models/                      # Data structures
+│   └── services/
+│       ├── auth_service.dart        # Firebase Auth (signup/login/logout)
+│       └── firestore_service.dart   # Firestore CRUD operations
+├── android/app/google-services.json # Firebase config for Android
+├── test/widget_test.dart
+├── pubspec.yaml
+└── firebase.json
 ```
 
 ---
 
 ## Reflection
 
-### What I Learned About Dart & Flutter
+### Firebase Integration Challenges
 
-1. **Widget-based architecture** — Everything in Flutter is a widget. The UI is built by composing small, reusable widgets (`Text`, `Icon`, `Column`, `Scaffold`) into larger ones.
+1. **FlutterFire CLI setup** – Running `flutterfire configure` requires Firebase CLI login and project selection. The CLI auto-generates `firebase_options.dart` which centralizes platform-specific config.
 
-2. **Stateful vs Stateless** — `StatelessWidget` is for static content; `StatefulWidget` + `setState()` is the mechanism for reactive UI updates.
+2. **Platform limitations** – Firebase requires native platform setup (google-services.json for Android, GoogleService-Info.plist for iOS). Web requires separate configuration. We configured Android only for this sprint.
 
-3. **Dart syntax** — Dart is clean and strongly typed. Features like `const` constructors, named parameters, and null safety make code predictable.
+3. **Auth error handling** – Firebase Auth throws coded exceptions (`weak-password`, `email-already-in-use`). Converting these to user-friendly messages required a switch-case mapper in `AuthService`.
 
-4. **Hot reload** — Changes appear in under a second without losing app state.
+4. **Real-time data with StreamBuilder** – Using `StreamBuilder` with Firestore snapshots keeps the UI in sync with the database without manual refresh. Changes made in Firebase Console appear instantly in the app.
 
-5. **Material Design 3** — `useMaterial3: true` gives modern, polished components. `colorSchemeSeed` generates a full palette from one color.
+### How Firebase Improves the App
 
-### Responsive Design Challenges & Learnings
-
-1. **Overflow handling** — The biggest challenge was preventing `RenderFlex` overflow errors on very small screens. Using `FittedBox`, `Flexible`, and `mainAxisSize: MainAxisSize.min` solved most cases.
-
-2. **Breakpoint strategy** — Choosing the right breakpoints (600px, 800px) required testing across multiple sizes. `LayoutBuilder` + `constraints.maxWidth` is more reliable than `MediaQuery` for nested widgets because it uses the actual available space, not the full screen width.
-
-3. **GridView aspect ratios** — `childAspectRatio` in `GridView` is critical for consistent card sizing across orientations. Landscape needed a 4-column grid while portrait worked best with 2 columns.
-
-4. **Real-world impact** — Responsive design ensures the app works for all users regardless of device. A small shopkeeper on a phone and a store manager on a tablet both get an optimized experience.
-
-### How This Structure Helps Build Complex UIs
-
-The modular folder structure (`screens/`, `widgets/`, `models/`, `services/`) creates clear separation of concerns:
-- **Screens** stay focused on layout and navigation
-- **Widgets** can be unit-tested and reused across screens
-- **Models** define the data contract independently of UI
-- **Services** can be swapped (e.g., mock data → Firebase) without touching UI code
+- **Scalability** – Firestore auto-scales. No server setup needed.
+- **Real-time sync** – Customer data updates across devices instantly via snapshot listeners.
+- **Security** – Firebase Auth handles password hashing, token management, and session persistence.
+- **Offline support** – Firestore caches data locally and syncs when back online.
 
 ---
 
-## Problem Statement
+## Setup Instructions
 
-Small businesses in **Tier-2 and Tier-3 towns** struggle to build customer loyalty because they lack simple and affordable tools to track repeat customers or maintain reward programs.
+```bash
+# 1. Verify Flutter
+flutter doctor
 
-### Key Question
+# 2. Clone & navigate
+git clone <repo-url>
+cd Sprint_02_Team_05/loyalty_link
 
-How might we support small businesses with a **modern digital loyalty experience** that is simple, affordable, and easy to manage?
+# 3. Install dependencies
+flutter pub get
 
----
+# 4. Run on Android emulator
+flutter run
 
-## Solution Overview
+# 5. Or run on Chrome (limited Firebase support)
+flutter run -d chrome
+```
 
-**LoyaltyLink** enables small businesses to manage digital loyalty programs — tracking repeat customers, assigning loyalty points, creating reward programs, and monitoring visits — all from a mobile app.
+### Firebase Console Setup Required
+1. Go to [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Authentication → Email/Password**
+3. Create **Firestore Database** in test mode
 
 ---
 
@@ -231,61 +216,34 @@ How might we support small businesses with a **modern digital loyalty experience
 | Layer | Technology |
 |------|------------|
 | Frontend | Flutter |
-| Programming Language | Dart |
-| Backend | Firebase |
+| Language | Dart |
+| Auth | Firebase Authentication |
 | Database | Cloud Firestore |
-| Authentication | Firebase Auth |
-| Hosting | Firebase Hosting |
-| CI/CD | GitHub Actions |
+| Config | FlutterFire CLI |
 
 ---
 
-## App User Flow
+## App Flow
 
 ```
-User opens app → Splash Screen → Login/Signup → Dashboard
-                                                    │
-                                             ┌──────┴──────┐
-                                             ▼             ▼
-                                          Customers     Rewards
-                                             │             │
-                                             ▼             ▼
-                                          Add Points   Redeem Rewards
+App Launch → Firebase Init → Check Auth State
+                                 │
+                    ┌────────────┴────────────┐
+                    ▼                         ▼
+              Not Logged In              Logged In
+                    │                         │
+                    ▼                         ▼
+              Login Screen              Dashboard
+                    │                    (Firestore CRUD)
+                    ▼                         │
+              Sign Up Screen            ┌─────┴──────┐
+                    │                   ▼            ▼
+                    ▼              Add/Edit     Delete
+              Dashboard            Customer    Customer
 ```
-
----
-
-## MVP Features
-
-- **Authentication**: Sign Up, Login, Logout
-- **Customer Management**: Add/view customers, Firestore storage
-- **Loyalty Points**: Add and track point balances
-- **Rewards**: Create rewards, redeem points
-- **Core Screens**: Splash, Login, Dashboard, Customers, Rewards, Profile
-
----
-
-## Sprint Timeline (4 Weeks)
-
-| Week | Focus |
-|------|-------|
-| 1 | Setup & Design – wireframes, Flutter & Firebase project setup |
-| 2 | Core Development – auth, dashboard, customer profiles, Firestore |
-| 3 | Integration & Testing – UI + Firestore, rewards, validation |
-| 4 | MVP Completion – polish, bug fixes, APK generation, demo prep |
-
----
-
-## Risks & Mitigation
-
-| Risk | Mitigation |
-|-----|------|
-| Firebase config issues | Use mock data until Firebase works |
-| UI bugs | Modular widget testing |
-| Schema mistakes | Plan Firestore structure before dev |
 
 ---
 
 ## Future Improvements
 
-Push notifications · QR code scanning · Analytics dashboard · Multi-language · Payment integration · Referral rewards
+Push notifications · QR scanning · Analytics · Multi-language · Payment integration · Referral rewards
