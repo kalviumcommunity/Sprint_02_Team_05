@@ -1,208 +1,129 @@
-# Handling User Input with Forms – LoyaltyLink
+# Local State Management with setState – LoyaltyLink
 
-## Sprint #2 – TextFields, Buttons, and Form Validation  
-**Technology Stack:** Flutter + Dart + Firebase Auth
+## Sprint #2 – Managing Local UI State with setState  
+**Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-LoyaltyLink uses **Form**, **TextFormField**, and **ElevatedButton** widgets across its signup and login screens to collect and validate user credentials. The forms include real-time validation, error feedback, and Firebase-powered submission.
+LoyaltyLink uses `setState()` extensively across multiple screens to manage interactive UI state — toggles, counters, loading indicators, form errors, and visibility changes. This document explains how `setState()` powers the app's reactive behavior.
 
 ---
 
-## Form Implementations
+## setState() in Action — All Usage Across the App
 
-### Signup Form (`signup_screen.dart`)
-
-Three input fields with validation, linked to Firebase Auth:
+### 1. Welcome Screen – Toggle State (`welcome_screen.dart`)
 
 ```dart
-final _formKey = GlobalKey<FormState>();
-final _nameController = TextEditingController();
-final _emailController = TextEditingController();
-final _passwordController = TextEditingController();
+bool _isJoined = false;  // Local state
 
-Form(
-  key: _formKey,
-  child: Column(children: [
-    // Name field
-    TextFormField(
-      controller: _nameController,
-      decoration: InputDecoration(hintText: 'Business Name', prefixIcon: Icon(Icons.storefront)),
-      validator: (v) => (v == null || v.isEmpty) ? 'Enter your name' : null,
-    ),
-
-    // Email field
-    TextFormField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(hintText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
-      validator: (v) {
-        if (v == null || v.isEmpty) return 'Enter email';
-        if (!v.contains('@')) return 'Enter a valid email';
-        return null;
-      },
-    ),
-
-    // Password field
-    TextFormField(
-      controller: _passwordController,
-      obscureText: true,
-      decoration: InputDecoration(hintText: 'Password', prefixIcon: Icon(Icons.lock_outline)),
-      validator: (v) {
-        if (v == null || v.isEmpty) return 'Enter password';
-        if (v.length < 6) return 'Min 6 characters';
-        return null;
-      },
-    ),
-
-    // Submit button
-    ElevatedButton(
-      onPressed: _loading ? null : _handleSignUp,
-      child: _loading ? CircularProgressIndicator() : Text('Sign Up'),
-    ),
-  ]),
-)
+void _toggleJoin() {
+  setState(() {
+    _isJoined = !_isJoined;  // Flips the boolean
+  });
+}
 ```
 
-### Form Submission Handler
+**What changes:** Icon switches (loyalty → favorite), text updates, button color changes, all via a single boolean.
+
+---
+
+### 2. Counter with Color Change (`stateless_stateful_demo.dart`)
 
 ```dart
-Future<void> _handleSignUp() async {
-  if (!_formKey.currentState!.validate()) return;  // Triggers all validators
+int _counter = 0;
+bool _isDarkMode = true;
+bool _showSecret = false;
 
-  setState(() { _loading = true; _error = null; });
+// Counter accent color changes based on count value
+Color get _accentColor {
+  final colors = [Color(0xFF6C63FF), Color(0xFFFF6584), Color(0xFF43E97B)];
+  return colors[_counter % colors.length];  // Conditional state update
+}
+
+// Increment
+onPressed: () => setState(() => _counter++),
+
+// Decrement (with guard)
+onPressed: () => setState(() { if (_counter > 0) _counter--; }),
+
+// Reset
+onPressed: () => setState(() => _counter = 0),
+
+// Theme toggle
+onTap: () => setState(() => _isDarkMode = !_isDarkMode),
+
+// Visibility toggle
+onTap: () => setState(() => _showSecret = !_showSecret),
+```
+
+**Conditional UI:** Background color and accent color change based on `_counter` value — demonstrating state-driven visual updates.
+
+---
+
+### 3. Loading & Error State (`login_screen.dart`)
+
+```dart
+bool _loading = false;
+String? _error;
+
+Future<void> _handleLogin() async {
+  if (!_formKey.currentState!.validate()) return;
+
+  setState(() { _loading = true; _error = null; });  // Show spinner, clear error
 
   try {
-    final user = await _auth.signUp(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
-    if (user != null) {
-      await _firestore.addUserData(user.uid, {
-        'name': _nameController.text.trim(),
-        'email': user.email,
-      });
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
-    }
+    await _auth.login(email, password);
+    // Navigate on success
   } catch (e) {
     setState(() => _error = e.toString());  // Show error banner
   } finally {
-    setState(() => _loading = false);
+    setState(() => _loading = false);  // Hide spinner
   }
 }
 ```
 
-### Login Form (`login_screen.dart`)
-
-Same pattern with email + password fields and validation:
-
-```dart
-TextFormField(
-  controller: _emailController,
-  validator: (v) {
-    if (v == null || v.isEmpty) return 'Enter email';
-    if (!v.contains('@')) return 'Enter a valid email';
-    return null;
-  },
-),
-
-TextFormField(
-  controller: _passwordController,
-  obscureText: true,
-  validator: (v) => (v == null || v.isEmpty) ? 'Enter password' : null,
-),
-
-ElevatedButton(
-  onPressed: _loading ? null : _handleLogin,
-  child: Text('Login'),
-),
-```
+**Multiple state variables** updated in sequence — `_loading` controls the spinner, `_error` controls the error banner.
 
 ---
 
-## Input Widgets Used
+## Common Mistakes Avoided
 
-| Widget | Purpose | Screen |
-|--------|---------|--------|
-| `Form` | Groups fields + manages validation state | Signup, Login |
-| `GlobalKey<FormState>` | Triggers `.validate()` on all fields at once | Signup, Login |
-| `TextFormField` | Text input with built-in `validator` | All forms |
-| `TextEditingController` | Reads/controls text field values | All forms |
-| `ElevatedButton` | Triggers form submission | Signup, Login |
-| `InputDecoration` | Styled hints, icons, borders | All fields |
-
----
-
-## Validation Flow
-
-```
-User taps "Sign Up"
-     │
-     ▼
-_formKey.currentState!.validate()
-     │
-     ├── Name empty?     → "Enter your name"
-     ├── Email empty?    → "Enter email"
-     ├── Email no @?     → "Enter a valid email"
-     ├── Password empty? → "Enter password"
-     ├── Password < 6?   → "Min 6 characters"
-     │
-     ▼ (all pass)
-Firebase Auth → createUserWithEmailAndPassword()
-     │
-     ├── Success → Navigate to Dashboard
-     └── Error   → Show error banner (e.g., "Email already in use")
-```
-
----
-
-## Error Handling UI
-
-```dart
-// Error banner shown when Firebase returns an error
-if (_error != null)
-  Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.red.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-    ),
-    child: Text(_error!, style: TextStyle(color: Colors.redAccent)),
-  ),
-```
+| ❌ Mistake | ✅ LoyaltyLink Approach |
+|-----------|------------------------|
+| Updating state without `setState()` | All state changes wrapped in `setState(() {...})` |
+| Calling `setState()` inside `build()` | State only updated in event handlers (`onPressed`, `onTap`) |
+| Rebuilding entire widget tree | Small StatefulWidgets update only their subtree |
+| Not guarding state | `if (_counter > 0) _counter--` prevents negative values |
 
 ---
 
 ## Screenshots
 
-### Form Before Input
-*(Add screenshot of empty signup form)*
+### Before State Change (counter = 0, dark mode)
+*(Add screenshot of initial demo state)*
 
-![Empty Form](loyalty_link/screenshots/form_empty.png)
+![Before](loyalty_link/screenshots/state_before.png)
 
-### Form With Validation Errors
-*(Add screenshot showing validation error messages)*
+### After State Change (counter incremented, light mode toggled)
+*(Add screenshot after interactions)*
 
-![Validation Errors](loyalty_link/screenshots/form_errors.png)
-
-### Successful Submission (Dashboard)
-*(Add screenshot of dashboard after successful signup)*
-
-![Success](loyalty_link/screenshots/form_success.png)
+![After](loyalty_link/screenshots/state_after.png)
 
 ---
 
 ## Reflection
 
-### Why is input validation important in mobile apps?
-Validation prevents **bad data** from reaching the backend. Without it, users could submit empty emails, weak passwords, or malformed data — causing crashes, security vulnerabilities, or corrupted database entries.
+### What's the difference between Stateless and Stateful widgets?
+- **StatelessWidget** = a photograph — fixed, no internal variables that change. UI is built once from constructor arguments.
+- **StatefulWidget** = a live feed — has a `State` object with mutable variables. Calling `setState()` re-runs `build()` to reflect changes.
 
-### What's the difference between TextField and TextFormField?
-- `TextField` — basic text input with no built-in validation
-- `TextFormField` — extends TextField with a `validator` property and integrates with `Form` for grouped validation via `_formKey.currentState!.validate()`
+### Why is setState() important for Flutter's reactive model?
+`setState()` is the **trigger** that connects data changes to UI updates. Without it, Flutter doesn't know that a variable changed and won't re-render. It marks the widget as "dirty" so Flutter's rendering pipeline only rebuilds the affected subtree — not the entire app.
 
-### How does form state management simplify validation?
-`GlobalKey<FormState>` lets you validate **all fields at once** with a single call to `.validate()`. Without it, you'd have to manually check each controller's text value — more code, more bugs, more maintenance.
+### How can improper use of setState() affect performance?
+1. **Too high in the tree** — calling `setState()` on a parent widget rebuilds all children, even unchanged ones
+2. **Inside build()** — causes infinite rebuild loops and crashes
+3. **Too many variables** — tracking too much state in one widget makes it hard to isolate what's changing
+4. **Not needed** — for app-wide state (auth, theme), use `StreamBuilder` or state management libraries instead of `setState()`
