@@ -1,147 +1,158 @@
-# Responsive Layout Design – LoyaltyLink
+# Scrollable Views with ListView & GridView – LoyaltyLink
 
-## Sprint #2 – Designing Responsive Layouts Using Rows, Columns & Containers  
+## Sprint #2 – Building Scrollable UI with ListView and GridView  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-The LoyaltyLink dashboard (`responsive_home.dart`) demonstrates responsive layout design using Flutter's core layout widgets — **Container**, **Row**, **Column**, **Expanded**, and **Flexible** — combined with `MediaQuery` and `LayoutBuilder` for screen-size adaptation.
+The LoyaltyLink app uses both **ListView** and **GridView** to display scrollable content — customer lists via `ListView.builder` in the dashboard, and stats cards via `GridView.builder` in the responsive home screen. Both use builder constructors for efficient rendering of dynamic data.
 
 ---
 
-## Core Layout Widgets Used
+## ListView – Scrollable Customer List
 
-### Container – Flexible boxes with padding, margin, and decoration
+### Implementation in `dashboard_screen.dart`
 
-```dart
-// Welcome banner with gradient, rounded corners, and padding
-Container(
-  width: double.infinity,
-  margin: EdgeInsets.all(horizontalPadding),
-  padding: EdgeInsets.all(cardPadding),
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(18),
-    gradient: LinearGradient(
-      colors: [Color(0xFF7C4DFF), Color(0xFF6C63FF).withValues(alpha: 0.6)],
-    ),
-  ),
-  child: Column(children: [
-    Text('👋 Welcome back, Business Owner!'),
-    Text('Here\'s your loyalty program overview for today.'),
-  ]),
-)
-```
-
-### Row – Horizontal layout for side-by-side content
+The customer list uses `ListView.builder` with real-time Firestore data via `StreamBuilder`:
 
 ```dart
-// Wide layout: Stats on left, Recent Activity on right
-Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Expanded(flex: 3, child: _buildStatsSection(...)),   // 60% width
-    SizedBox(width: 16),
-    Expanded(flex: 2, child: _buildActivityPanel(...)),   // 40% width
-  ],
-)
-```
+StreamBuilder<QuerySnapshot>(
+  stream: _firestore.getCustomers(user.uid),
+  builder: (context, snapshot) {
+    final docs = snapshot.data!.docs;
 
-### Column – Vertical stacking for main content flow
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: docs.length,
+      itemBuilder: (_, i) {
+        final data = docs[i].data() as Map<String, dynamic>;
+        final name = data['name'] ?? 'Unknown';
+        final phone = data['phone'] ?? '';
+        final points = data['points'] ?? 0;
 
-```dart
-// Main content stacked vertically
-Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    _buildWelcomeBanner(...),         // Header section
-    SizedBox(height: 20),
-    Text('Quick Stats'),              // Section title
-    SizedBox(height: 12),
-    GridView.builder(...),            // Stats grid
-    SizedBox(height: 24),
-    Text('Quick Actions'),            // Actions section
-    Wrap(children: actionButtons),    // Responsive action buttons
-  ],
-)
-```
-
-### Expanded & Flexible – Proportional space distribution
-
-```dart
-// Two-column layout with 3:2 ratio
-Row(children: [
-  Expanded(flex: 3, child: mainContent),   // Takes 60%
-  Expanded(flex: 2, child: sidePanel),     // Takes 40%
-])
-```
-
----
-
-## Responsive Behavior
-
-### How Responsiveness Works
-
-```dart
-// MediaQuery detects screen dimensions
-final screenWidth = MediaQuery.of(context).size.width;
-final isTablet = screenWidth > 600;
-final isLandscape = screenWidth > screenHeight;
-
-// LayoutBuilder adapts based on available space
-LayoutBuilder(
-  builder: (context, constraints) {
-    if (constraints.maxWidth > 800)  return _buildWideLayout();    // Row with side panel
-    if (constraints.maxWidth > 600)  return _buildMediumLayout();  // Single column
-    else                             return _buildNarrowLayout();  // Phone layout
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              child: Text(name[0].toUpperCase()),
+            ),
+            title: Text(name),
+            subtitle: Text('$phone  •  ⭐ $points pts'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: Icon(Icons.edit), onPressed: () => _edit(doc)),
+                IconButton(icon: Icon(Icons.delete), onPressed: () => _delete(doc)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   },
 )
 ```
 
-| Screen Size | Layout | Grid Columns | Side Panel |
-|-------------|--------|-------------|------------|
-| **< 600px** (Phone Portrait) | Single column | 2 | Hidden |
-| **600–800px** (Phone Landscape) | Single column | 2–4 | Hidden |
-| **> 800px** (Tablet) | Two-column Row | 2 | Visible |
+**Key features:**
+- `ListView.builder` — only renders visible items (lazy loading)
+- `StreamBuilder` — list updates in real-time as Firestore data changes
+- Each item has edit/delete actions via trailing `IconButton`s
+- Empty state shows a placeholder illustration when no customers exist
+
+---
+
+## GridView – Stats Dashboard Grid
+
+### Implementation in `responsive_home.dart`
+
+The stats cards use `GridView.builder` with a responsive column count:
+
+```dart
+GridView.builder(
+  shrinkWrap: true,
+  physics: const NeverScrollableScrollPhysics(),  // Parent handles scrolling
+  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: isLandscape ? 4 : 2,          // Responsive columns
+    crossAxisSpacing: 12,
+    mainAxisSpacing: 12,
+    childAspectRatio: isTablet ? 1.6 : 1.3,       // Responsive card shape
+  ),
+  itemCount: stats.length,
+  itemBuilder: (context, index) {
+    final stat = stats[index];
+    return Container(
+      padding: EdgeInsets.all(cardPadding),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withValues(alpha: 0.1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(stat.icon, color: stat.color, size: 24),
+          Spacer(),
+          FittedBox(child: Text(stat.value, style: TextStyle(fontSize: 28))),
+          Text(stat.label),
+        ],
+      ),
+    );
+  },
+)
+```
+
+**Key features:**
+- `GridView.builder` — efficient rendering for dynamic stat items
+- `crossAxisCount` adapts: 2 columns on phone, 4 in landscape
+- `childAspectRatio` adjusts card proportions per device
+- `shrinkWrap: true` + `NeverScrollableScrollPhysics` — embedded inside a parent `SingleChildScrollView`
+
+---
+
+## Builder vs Static Constructors
+
+| Constructor | When to Use | Performance |
+|-------------|------------|-------------|
+| `ListView()` | Small, fixed lists (< 10 items) | Builds all items upfront |
+| `ListView.builder()` | Dynamic/large lists | **Lazy** — only builds visible items |
+| `GridView.count()` | Small, fixed grids | Builds all items upfront |
+| `GridView.builder()` | Dynamic/large grids | **Lazy** — only builds visible cells |
 
 ---
 
 ## Screenshots
 
-### Phone Portrait (390 × 844px)
-![Phone Portrait](loyalty_link/screenshots/responsive_phone_portrait.png)
+### ListView – Customer List (Dashboard)
+*(Add screenshot showing the scrollable customer list)*
 
-- Single **Column** layout
-- Stats in 2-column **GridView**
-- Quick Actions in **Wrap** (auto-wrapping)
+![Customer List](loyalty_link/screenshots/listview_customers.png)
 
-### Phone Landscape (844 × 390px)
-![Phone Landscape](loyalty_link/screenshots/responsive_phone_landscape.png)
+### GridView – Stats Dashboard
+![Stats Grid - Phone](loyalty_link/screenshots/responsive_phone_portrait.png)
 
-- Adapts to **Row** layout with side panel
-- Stats grid expands columns
-
-### Tablet (1024 × 768px)
-![Tablet](loyalty_link/screenshots/responsive_tablet.png)
-
-- **Row** with **Expanded(flex: 3)** for stats + **Expanded(flex: 2)** for activity panel
-- Larger padding and font sizes via **Container** properties
+![Stats Grid - Tablet](loyalty_link/screenshots/responsive_tablet.png)
 
 ---
 
 ## Reflection
 
-### Why is responsiveness important in mobile apps?
-Users access apps on phones, tablets, and web browsers. A layout that only works at one size alienates users on different devices. Responsiveness ensures every user gets a usable, visually balanced experience regardless of screen dimensions.
+### How do ListView and GridView improve UI efficiency?
+Both widgets provide **scrollable containers** that handle overflow gracefully. Instead of content being clipped or causing overflow errors, items scroll naturally. The `builder` variants use **lazy rendering** — only visible items are built in memory, which keeps the app fast even with hundreds of items.
 
-### What challenges did you face managing layout proportions?
-- **Overflow errors** — Column children exceeding screen height. Solved with `Expanded`, `Flexible`, and `SingleChildScrollView`.
-- **Grid aspect ratios** — `childAspectRatio` in GridView needs different values for portrait vs landscape. Dynamic calculation via `MediaQuery` solved this.
-- **Text sizing** — static font sizes look too small on tablets and too large on phones. Using `isTablet` conditional sizing fixed this.
+### Why are builder constructors recommended for large data sets?
+- **Memory efficiency** — only ~10-15 visible items exist at a time, not all 1000
+- **Smooth scrolling** — minimal frame drops because items are built on-demand
+- **Dynamic data** — `itemCount` and `itemBuilder` work naturally with lists from APIs/databases
+- **Recycling** — Flutter reuses widget slots as items scroll in/out of view
 
-### How can you improve layout for different orientations?
-- Use `OrientationBuilder` alongside `LayoutBuilder` for finer control
-- Implement adaptive breakpoints (not just phone/tablet but also foldables)
-- Add responsive image sizing using `ConstrainedBox` and `FittedBox`
-- Consider `SliverGrid` for more complex scrollable responsive grids
+### Common performance pitfalls to avoid
+1. **Unbounded height** — never put a `ListView` inside a `Column` without `shrinkWrap: true` or wrapping in `Expanded`
+2. **Heavy builders** — avoid expensive operations (network calls, image processing) inside `itemBuilder`
+3. **Missing keys** — without `key` on list items, Flutter may rebuild items unnecessarily on reorder
+4. **Nested scrolling** — use `NeverScrollableScrollPhysics()` on inner scrollable widgets to prevent scroll conflicts
