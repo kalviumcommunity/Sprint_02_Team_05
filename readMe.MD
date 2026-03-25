@@ -1,129 +1,188 @@
-# Local State Management with setState – LoyaltyLink
+# Reusable Custom Widgets – LoyaltyLink
 
-## Sprint #2 – Managing Local UI State with setState  
+## Sprint #2 – Creating Modular, Reusable Custom Widgets  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-LoyaltyLink uses `setState()` extensively across multiple screens to manage interactive UI state — toggles, counters, loading indicators, form errors, and visibility changes. This document explains how `setState()` powers the app's reactive behavior.
+LoyaltyLink uses custom reusable widgets stored in `lib/widgets/` to maintain **consistent design** and **reduce code duplication** across all screens. Three custom widgets are defined and reused across login, signup, and dashboard.
 
 ---
 
-## setState() in Action — All Usage Across the App
+## Custom Widgets Created
 
-### 1. Welcome Screen – Toggle State (`welcome_screen.dart`)
+### 1. `StyledButton` — Reusable Action Button
 
-```dart
-bool _isJoined = false;  // Local state
-
-void _toggleJoin() {
-  setState(() {
-    _isJoined = !_isJoined;  // Flips the boolean
-  });
-}
-```
-
-**What changes:** Icon switches (loyalty → favorite), text updates, button color changes, all via a single boolean.
-
----
-
-### 2. Counter with Color Change (`stateless_stateful_demo.dart`)
+A button with loading state, icon support, customizable colors, and full-width mode.
 
 ```dart
-int _counter = 0;
-bool _isDarkMode = true;
-bool _showSecret = false;
+// lib/widgets/styled_button.dart
+class StyledButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final Color backgroundColor;
+  final IconData? icon;
+  final bool fullWidth;
 
-// Counter accent color changes based on count value
-Color get _accentColor {
-  final colors = [Color(0xFF6C63FF), Color(0xFFFF6584), Color(0xFF43E97B)];
-  return colors[_counter % colors.length];  // Conditional state update
-}
-
-// Increment
-onPressed: () => setState(() => _counter++),
-
-// Decrement (with guard)
-onPressed: () => setState(() { if (_counter > 0) _counter--; }),
-
-// Reset
-onPressed: () => setState(() => _counter = 0),
-
-// Theme toggle
-onTap: () => setState(() => _isDarkMode = !_isDarkMode),
-
-// Visibility toggle
-onTap: () => setState(() => _showSecret = !_showSecret),
-```
-
-**Conditional UI:** Background color and accent color change based on `_counter` value — demonstrating state-driven visual updates.
-
----
-
-### 3. Loading & Error State (`login_screen.dart`)
-
-```dart
-bool _loading = false;
-String? _error;
-
-Future<void> _handleLogin() async {
-  if (!_formKey.currentState!.validate()) return;
-
-  setState(() { _loading = true; _error = null; });  // Show spinner, clear error
-
-  try {
-    await _auth.login(email, password);
-    // Navigate on success
-  } catch (e) {
-    setState(() => _error = e.toString());  // Show error banner
-  } finally {
-    setState(() => _loading = false);  // Hide spinner
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: isLoading ? null : onPressed,
+      child: isLoading
+          ? CircularProgressIndicator(strokeWidth: 2)
+          : Row(children: [
+              if (icon != null) Icon(icon),
+              Text(label),
+            ]),
+    );
   }
 }
 ```
 
-**Multiple state variables** updated in sequence — `_loading` controls the spinner, `_error` controls the error banner.
+**Reused in:**
+| Screen | Usage |
+|--------|-------|
+| Login | `StyledButton(label: 'Login', isLoading: _loading, onPressed: _handleLogin)` |
+| Signup | `StyledButton(label: 'Sign Up', isLoading: _loading, onPressed: _handleSignUp)` |
+| Dashboard | `StyledButton(label: 'Add Customer', icon: Icons.add, onPressed: _addCustomer)` |
 
 ---
 
-## Common Mistakes Avoided
+### 2. `StyledTextField` — Reusable Form Input
 
-| ❌ Mistake | ✅ LoyaltyLink Approach |
-|-----------|------------------------|
-| Updating state without `setState()` | All state changes wrapped in `setState(() {...})` |
-| Calling `setState()` inside `build()` | State only updated in event handlers (`onPressed`, `onTap`) |
-| Rebuilding entire widget tree | Small StatefulWidgets update only their subtree |
-| Not guarding state | `if (_counter > 0) _counter--` prevents negative values |
+A styled `TextFormField` with consistent borders, colors, icons, and validation support.
+
+```dart
+// lib/widgets/styled_text_field.dart
+class StyledTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final IconData prefixIcon;
+  final bool obscureText;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: Icon(prefixIcon),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.1),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      validator: validator,
+    );
+  }
+}
+```
+
+**Reused in:**
+| Screen | Fields |
+|--------|--------|
+| Signup | Name, Email, Password (3 instances) |
+| Login | Email, Password (2 instances) |
+| Dashboard | Customer Name, Phone, Points (3 instances in dialog) |
+
+---
+
+### 3. `GradientCard` — Reusable Info Card
+
+A card with gradient background, icon, title, subtitle, and optional tap action.
+
+```dart
+// lib/widgets/gradient_card.dart
+class GradientCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(colors: [iconColor.withAlpha(0.3), iconColor.withAlpha(0.1)]),
+      ),
+      child: Row(children: [
+        CircleAvatar(child: Icon(icon, color: iconColor)),
+        Column(children: [Text(title), Text(subtitle)]),
+        if (onTap != null) Icon(Icons.chevron_right),
+      ]),
+    );
+  }
+}
+```
+
+**Reused in:**
+| Screen | Usage |
+|--------|-------|
+| Dashboard | Welcome banner card |
+| Responsive Home | Stats overview card |
+| Demo | Info display cards |
+
+---
+
+## Widget Folder Structure
+
+```
+lib/
+├── widgets/
+│   ├── gradient_card.dart       # Reusable gradient info card
+│   ├── styled_button.dart       # Reusable button with loading state
+│   └── styled_text_field.dart   # Reusable form input field
+├── screens/
+│   ├── login_screen.dart        # Uses StyledButton, StyledTextField
+│   ├── signup_screen.dart       # Uses StyledButton, StyledTextField
+│   └── dashboard_screen.dart    # Uses StyledButton, GradientCard
+```
+
+---
+
+## How Widgets Are Imported and Reused
+
+```dart
+// In any screen:
+import '../widgets/styled_button.dart';
+import '../widgets/styled_text_field.dart';
+import '../widgets/gradient_card.dart';
+
+// Usage — same widget, different data:
+StyledButton(label: 'Login', onPressed: _login),
+StyledButton(label: 'Sign Up', onPressed: _signup, backgroundColor: Colors.green),
+StyledButton(label: 'Add', icon: Icons.add, onPressed: _add, fullWidth: false),
+```
 
 ---
 
 ## Screenshots
 
-### Before State Change (counter = 0, dark mode)
-*(Add screenshot of initial demo state)*
+### StyledButton reused on Login & Signup
+*(Add screenshots showing the same button style on both screens)*
 
-![Before](loyalty_link/screenshots/state_before.png)
-
-### After State Change (counter incremented, light mode toggled)
-*(Add screenshot after interactions)*
-
-![After](loyalty_link/screenshots/state_after.png)
+![Login](loyalty_link/screenshots/widget_login.png)
+![Signup](loyalty_link/screenshots/widget_signup.png)
 
 ---
 
 ## Reflection
 
-### What's the difference between Stateless and Stateful widgets?
-- **StatelessWidget** = a photograph — fixed, no internal variables that change. UI is built once from constructor arguments.
-- **StatefulWidget** = a live feed — has a `State` object with mutable variables. Calling `setState()` re-runs `build()` to reflect changes.
+### How do reusable widgets improve development efficiency?
+Instead of copying 20+ lines of button styling into every screen, we define it **once** in `StyledButton` and reuse it everywhere. Changing the border radius or color in one file updates **all** buttons across the app instantly.
 
-### Why is setState() important for Flutter's reactive model?
-`setState()` is the **trigger** that connects data changes to UI updates. Without it, Flutter doesn't know that a variable changed and won't re-render. It marks the widget as "dirty" so Flutter's rendering pipeline only rebuilds the affected subtree — not the entire app.
+### What challenges did you face designing modular components?
+- **Flexibility vs simplicity** — making widgets configurable enough (via parameters) without over-engineering them with too many options
+- **Default values** — choosing sensible defaults so widgets work with minimal configuration while still being customizable
 
-### How can improper use of setState() affect performance?
-1. **Too high in the tree** — calling `setState()` on a parent widget rebuilds all children, even unchanged ones
-2. **Inside build()** — causes infinite rebuild loops and crashes
-3. **Too many variables** — tracking too much state in one widget makes it hard to isolate what's changing
-4. **Not needed** — for app-wide state (auth, theme), use `StreamBuilder` or state management libraries instead of `setState()`
+### How could your team apply this approach?
+- Create a shared `widgets/` folder with team-agreed components
+- New screens only import existing widgets — no inline styling
+- Design changes are made in one file, reflected everywhere
+- PR reviews are faster because screens contain less boilerplate
