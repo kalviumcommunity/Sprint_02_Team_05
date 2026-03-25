@@ -1,21 +1,59 @@
-# Scrollable Views with ListView & GridView – LoyaltyLink
+# Consistent Styles & Scrollable Views – LoyaltyLink
 
-## Sprint #2 – Building Scrollable UI with ListView and GridView  
+## Sprint #2 – Applying Styles, Colors, Text Themes + Scrollable Views  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-The LoyaltyLink app uses both **ListView** and **GridView** to display scrollable content — customer lists via `ListView.builder` in the dashboard, and stats cards via `GridView.builder` in the responsive home screen. Both use builder constructors for efficient rendering of dynamic data.
+LoyaltyLink demonstrates **consistent theming** across all screens using Material 3's `ThemeData` + `colorSchemeSeed`, and uses **ListView** and **GridView** widgets to display scrollable content efficiently.
+
+---
+
+## Consistent Styles & Theming
+
+### Global Theme in `main.dart`
+
+All screens inherit from a single `ThemeData` defined in the root `MaterialApp`:
+
+```dart
+MaterialApp(
+  theme: ThemeData(
+    colorSchemeSeed: const Color(0xFF6C63FF),  // Purple seed generates full palette
+    useMaterial3: true,
+    brightness: Brightness.dark,
+  ),
+)
+```
+
+### How Theme Consistency Works Across Screens
+
+| Element | Style Approach | Consistency |
+|---------|---------------|-------------|
+| **Colors** | Custom purple palette (`0xFF6C63FF`) + color scheme seed | All screens use same gradient + accent |
+| **Text** | Uniform `TextStyle` sizes: 28 for titles, 15 for subtitles, 13 for labels | Same hierarchy everywhere |
+| **Buttons** | `ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: purple)` | Login, Signup, Dashboard match |
+| **Cards** | `Colors.white.withValues(alpha: 0.1)` with `BorderRadius.circular(14)` | Glassmorphic style on all screens |
+| **Gradients** | `LinearGradient(colors: [0xFF6C63FF, 0xFF1A1A2E])` | Same background on every screen |
+| **Input fields** | Filled `TextFormField` with `Colors.white.withValues(alpha: 0.1)` | Login & Signup match exactly |
+
+### Reusable Color Palette
+
+```dart
+// Consistent across all screens
+const primaryPurple = Color(0xFF6C63FF);
+const darkBackground = Color(0xFF1A1A2E);
+const cardOverlay = Colors.white.withValues(alpha: 0.1);
+const textPrimary = Colors.white;
+const textSecondary = Colors.white.withValues(alpha: 0.7);
+```
 
 ---
 
 ## ListView – Scrollable Customer List
 
 ### Implementation in `dashboard_screen.dart`
-
-The customer list uses `ListView.builder` with real-time Firestore data via `StreamBuilder`:
 
 ```dart
 StreamBuilder<QuerySnapshot>(
@@ -28,30 +66,14 @@ StreamBuilder<QuerySnapshot>(
       itemCount: docs.length,
       itemBuilder: (_, i) {
         final data = docs[i].data() as Map<String, dynamic>;
-        final name = data['name'] ?? 'Unknown';
-        final phone = data['phone'] ?? '';
-        final points = data['points'] ?? 0;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(name[0].toUpperCase()),
-            ),
-            title: Text(name),
-            subtitle: Text('$phone  •  ⭐ $points pts'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(icon: Icon(Icons.edit), onPressed: () => _edit(doc)),
-                IconButton(icon: Icon(Icons.delete), onPressed: () => _delete(doc)),
-              ],
-            ),
-          ),
+        return ListTile(
+          leading: CircleAvatar(child: Text(data['name'][0])),
+          title: Text(data['name']),
+          subtitle: Text('⭐ ${data['points']} pts'),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(icon: Icon(Icons.edit), onPressed: () => _edit(docs[i])),
+            IconButton(icon: Icon(Icons.delete), onPressed: () => _delete(docs[i])),
+          ]),
         );
       },
     );
@@ -59,11 +81,7 @@ StreamBuilder<QuerySnapshot>(
 )
 ```
 
-**Key features:**
-- `ListView.builder` — only renders visible items (lazy loading)
-- `StreamBuilder` — list updates in real-time as Firestore data changes
-- Each item has edit/delete actions via trailing `IconButton`s
-- Empty state shows a placeholder illustration when no customers exist
+**Why `ListView.builder`:** Only renders visible items — efficient for lists of any size.
 
 ---
 
@@ -71,88 +89,73 @@ StreamBuilder<QuerySnapshot>(
 
 ### Implementation in `responsive_home.dart`
 
-The stats cards use `GridView.builder` with a responsive column count:
-
 ```dart
 GridView.builder(
   shrinkWrap: true,
-  physics: const NeverScrollableScrollPhysics(),  // Parent handles scrolling
+  physics: const NeverScrollableScrollPhysics(),
   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: isLandscape ? 4 : 2,          // Responsive columns
+    crossAxisCount: isLandscape ? 4 : 2,
     crossAxisSpacing: 12,
     mainAxisSpacing: 12,
-    childAspectRatio: isTablet ? 1.6 : 1.3,       // Responsive card shape
+    childAspectRatio: isTablet ? 1.6 : 1.3,
   ),
   itemCount: stats.length,
   itemBuilder: (context, index) {
-    final stat = stats[index];
     return Container(
       padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: Colors.white.withValues(alpha: 0.1),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(stat.icon, color: stat.color, size: 24),
-          Spacer(),
-          FittedBox(child: Text(stat.value, style: TextStyle(fontSize: 28))),
-          Text(stat.label),
-        ],
-      ),
+      child: Column(children: [
+        Icon(stats[index].icon, color: stats[index].color),
+        FittedBox(child: Text(stats[index].value)),
+        Text(stats[index].label),
+      ]),
     );
   },
 )
 ```
 
-**Key features:**
-- `GridView.builder` — efficient rendering for dynamic stat items
-- `crossAxisCount` adapts: 2 columns on phone, 4 in landscape
-- `childAspectRatio` adjusts card proportions per device
-- `shrinkWrap: true` + `NeverScrollableScrollPhysics` — embedded inside a parent `SingleChildScrollView`
+**Why `GridView.builder`:** Lazy rendering + responsive `crossAxisCount` for different screen sizes.
 
 ---
 
-## Builder vs Static Constructors
+## ListView vs GridView
 
-| Constructor | When to Use | Performance |
-|-------------|------------|-------------|
-| `ListView()` | Small, fixed lists (< 10 items) | Builds all items upfront |
-| `ListView.builder()` | Dynamic/large lists | **Lazy** — only builds visible items |
-| `GridView.count()` | Small, fixed grids | Builds all items upfront |
-| `GridView.builder()` | Dynamic/large grids | **Lazy** — only builds visible cells |
+| Feature | ListView | GridView |
+|---------|----------|---------|
+| **Layout** | Single-column vertical scroll | Multi-column grid scroll |
+| **Best for** | Contacts, chats, feeds, customer lists | Dashboards, galleries, product catalogs |
+| **Builder** | `ListView.builder()` | `GridView.builder()` |
+| **Responsive** | Via item width | Via `crossAxisCount` |
 
 ---
 
 ## Screenshots
 
-### ListView – Customer List (Dashboard)
-*(Add screenshot showing the scrollable customer list)*
+### Dashboard – ListView (Customer List)
+*(Add screenshot of scrollable customer list)*
 
-![Customer List](loyalty_link/screenshots/listview_customers.png)
+![ListView](loyalty_link/screenshots/listview_customers.png)
 
-### GridView – Stats Dashboard
-![Stats Grid - Phone](loyalty_link/screenshots/responsive_phone_portrait.png)
+### Home – GridView (Stats Grid)
+![GridView Phone](loyalty_link/screenshots/responsive_phone_portrait.png)
 
-![Stats Grid - Tablet](loyalty_link/screenshots/responsive_tablet.png)
+![GridView Tablet](loyalty_link/screenshots/responsive_tablet.png)
 
 ---
 
 ## Reflection
 
-### How do ListView and GridView improve UI efficiency?
-Both widgets provide **scrollable containers** that handle overflow gracefully. Instead of content being clipped or causing overflow errors, items scroll naturally. The `builder` variants use **lazy rendering** — only visible items are built in memory, which keeps the app fast even with hundreds of items.
+### How does ListView differ from GridView in design use cases?
+ListView is ideal for **sequential content** (messages, contacts, feeds) where items are read top-to-bottom. GridView is better for **visual browsing** (photos, stats, products) where users scan a 2D layout.
 
-### Why are builder constructors recommended for large data sets?
-- **Memory efficiency** — only ~10-15 visible items exist at a time, not all 1000
-- **Smooth scrolling** — minimal frame drops because items are built on-demand
-- **Dynamic data** — `itemCount` and `itemBuilder` work naturally with lists from APIs/databases
-- **Recycling** — Flutter reuses widget slots as items scroll in/out of view
+### Why is `ListView.builder()` more efficient for large lists?
+It uses **lazy construction** — only the ~10-15 items visible on screen are built. A regular `ListView` with 1000 children would build all 1000 upfront, consuming memory and delaying the first frame.
 
-### Common performance pitfalls to avoid
-1. **Unbounded height** — never put a `ListView` inside a `Column` without `shrinkWrap: true` or wrapping in `Expanded`
-2. **Heavy builders** — avoid expensive operations (network calls, image processing) inside `itemBuilder`
-3. **Missing keys** — without `key` on list items, Flutter may rebuild items unnecessarily on reorder
-4. **Nested scrolling** — use `NeverScrollableScrollPhysics()` on inner scrollable widgets to prevent scroll conflicts
+### What can you do to prevent lag or overflow errors?
+1. **Always use `.builder()`** for dynamic data
+2. **Wrap in `Expanded`** when inside a Column to avoid unbounded height
+3. **Use `shrinkWrap: true`** + `NeverScrollableScrollPhysics()` for nested scrollable widgets
+4. **Avoid heavy computation** inside `itemBuilder` — pre-process data before building
