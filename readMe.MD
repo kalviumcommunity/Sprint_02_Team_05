@@ -1,154 +1,139 @@
-# Widget Tree & Reactive UI Model – LoyaltyLink
+# Stateless vs Stateful Widgets – LoyaltyLink Demo
 
-## Sprint #2 – Understanding Flutter's Core Architecture  
+## Sprint #2 – Creating and Using Stateless & Stateful Widgets  
 **Technology Stack:** Flutter + Dart
 
 ---
 
 ## Project Description
 
-This document explores Flutter's **widget tree** and **reactive UI model** using the LoyaltyLink Welcome screen as a live demo. The Welcome screen (`welcome_screen.dart`) demonstrates nested widget hierarchies and `setState()`-driven UI updates.
+A demo app (`stateless_stateful_demo.dart`) showcasing both **StatelessWidget** and **StatefulWidget** side-by-side. The screen is split into two clearly labeled sections — static widgets at the top and interactive widgets below — to demonstrate when and why to use each type.
 
 ---
 
-## What is a Widget Tree?
+## What Are Stateless and Stateful Widgets?
 
-In Flutter, **everything is a widget** — text, buttons, layouts, even the app itself. Widgets form a **tree hierarchy** where each widget is a node with parent-child relationships. Flutter reads this tree top-to-bottom to build the UI.
+| | **StatelessWidget** | **StatefulWidget** |
+|---|---|---|
+| **State** | No mutable state | Maintains internal state |
+| **Rebuilds** | Only when parent rebuilds with new data | When `setState()` is called |
+| **Use for** | Labels, icons, static cards, headers | Counters, toggles, forms, animations |
+| **Performance** | Cheaper — no state tracking overhead | Slightly heavier — tracks state lifecycle |
+| **Example** | `AppHeader`, `StaticInfoCard` | `InteractiveDemo` |
 
 ---
 
-## Widget Tree – LoyaltyLink Welcome Screen
+## Code Snippets
 
-### Tree Diagram
-
-```
-MaterialApp
- └── WelcomeScreen (StatefulWidget)
-      └── Scaffold
-           ├── AppBar
-           │    └── Text("LoyaltyLink")
-           └── Container (gradient background)
-                └── SafeArea
-                     └── Column
-                          ├── AnimatedContainer (circle)
-                          │    └── Icon (loyalty → favorite)
-                          ├── SizedBox
-                          ├── AnimatedSwitcher
-                          │    └── Text ("Welcome to LoyaltyLink" ↔ "Welcome aboard! 🎉")
-                          ├── SizedBox
-                          ├── AnimatedSwitcher
-                          │    └── Text (subtitle)
-                          ├── SizedBox
-                          └── ElevatedButton.icon
-                               ├── Icon (arrow_forward → check_circle)
-                               └── Text ("Get Started" ↔ "Joined ✓")
-```
-
-### Code Showing the Hierarchy
+### StatelessWidget – AppHeader (static, never changes)
 
 ```dart
-Scaffold(
-  appBar: AppBar(title: Text('LoyaltyLink')),
-  body: Container(
-    decoration: BoxDecoration(gradient: LinearGradient(...)),
-    child: Column(
-      children: [
-        AnimatedContainer(child: Icon(_isJoined ? Icons.favorite : Icons.loyalty)),
-        AnimatedSwitcher(child: Text(_isJoined ? 'Welcome aboard!' : 'Welcome to LoyaltyLink')),
-        ElevatedButton.icon(
-          onPressed: _toggleJoin,  // ← triggers setState()
-          icon: Icon(_isJoined ? Icons.check_circle : Icons.arrow_forward),
-          label: Text(_isJoined ? 'Joined ✓' : 'Get Started'),
-        ),
-      ],
-    ),
-  ),
-);
-```
+class AppHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
 
----
+  const AppHeader({required this.title, required this.subtitle});
 
-## How the Reactive UI Model Works
-
-### The setState() Mechanism
-
-```dart
-class _WelcomeScreenState extends State<WelcomeScreen> {
-  bool _isJoined = false;    // ← state variable
-
-  void _toggleJoin() {
-    setState(() {             // ← tells Flutter: "state changed, rebuild!"
-      _isJoined = !_isJoined;
-    });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(colors: [Color(0xFF6C63FF), ...]),
+      ),
+      child: Column(children: [
+        Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(subtitle),
+      ]),
+    );
   }
 }
 ```
 
-**What happens when the button is pressed:**
+> This widget displays the same content every time. It has **no `setState()`**, no mutable variables. The only way it changes is if a parent passes different `title`/`subtitle` values.
 
-1. User taps "Get Started" → `_toggleJoin()` is called
-2. `setState()` flips `_isJoined` from `false` to `true`
-3. Flutter marks the widget as **dirty** (needs rebuild)
-4. Flutter calls `build()` again on `_WelcomeScreenState`
-5. Only the **changed widgets** (Icon, Text, Button) are re-rendered
-6. The `Scaffold`, `AppBar`, `Container`, and `Column` are **NOT rebuilt** — they didn't change
+### StatefulWidget – InteractiveDemo (updates on interaction)
 
-### Why Flutter Doesn't Rebuild Everything
+```dart
+class InteractiveDemo extends StatefulWidget {
+  @override
+  State<InteractiveDemo> createState() => _InteractiveDemoState();
+}
 
-Flutter uses an **Element tree** behind the scenes. When `build()` runs again, Flutter compares the new widget tree with the old one (like a diff). Only widgets whose properties changed get updated. This is why `AnimatedSwitcher` works — Flutter detects the `key` changed on the `Text` widget and animates the transition.
+class _InteractiveDemoState extends State<InteractiveDemo> {
+  int _counter = 0;
+  bool _isDarkMode = true;
+  bool _showSecret = false;
 
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      // Counter with animated color
+      Text('$_counter', style: TextStyle(fontSize: 56, color: _accentColor)),
+      
+      // Increment/Decrement/Reset buttons
+      Row(children: [
+        IconButton(onPressed: () => setState(() => _counter--), icon: Icon(Icons.remove)),
+        IconButton(onPressed: () => setState(() => _counter++), icon: Icon(Icons.add)),
+        IconButton(onPressed: () => setState(() => _counter = 0), icon: Icon(Icons.refresh)),
+      ]),
+
+      // Theme toggle
+      GestureDetector(
+        onTap: () => setState(() => _isDarkMode = !_isDarkMode),
+        child: Text(_isDarkMode ? 'Dark Mode' : 'Light Mode'),
+      ),
+
+      // Visibility toggle
+      GestureDetector(
+        onTap: () => setState(() => _showSecret = !_showSecret),
+        child: AnimatedCrossFade(...),
+      ),
+    ]);
+  }
+}
 ```
-Before setState():                After setState():
-─────────────────                 ─────────────────
-Icon(Icons.loyalty)        →      Icon(Icons.favorite)     ← REBUILT ✓
-Text("Welcome to...")      →      Text("Welcome aboard!")  ← REBUILT ✓
-Text("Get Started")        →      Text("Joined ✓")         ← REBUILT ✓
-Scaffold(...)              →      Scaffold(...)             ← SKIPPED (unchanged)
-AppBar(...)                →      AppBar(...)               ← SKIPPED (unchanged)
-Container(gradient)        →      Container(gradient)       ← SKIPPED (unchanged)
-```
+
+> This widget has **three state variables** (`_counter`, `_isDarkMode`, `_showSecret`). Each `setState()` call tells Flutter to rebuild only the changed parts.
 
 ---
 
-## Screenshots – Before & After State Change
+## Interactions Demonstrated
 
-### Initial State (before tap)
-![Before](loyalty_link/screenshots/welcome_initial.png)
+| # | Interaction | State Change | Widgets Rebuilt |
+|---|------------|-------------|-----------------|
+| 1 | Tap **+** button | `_counter++` | Counter text, accent color container |
+| 2 | Tap **−** button | `_counter--` | Counter text, accent color container |
+| 3 | Tap **reset** button | `_counter = 0` | Counter text, accent color container |
+| 4 | Tap **theme toggle** | `_isDarkMode` flips | Theme row (icon, text, background color) |
+| 5 | Tap **secret reveal** | `_showSecret` flips | AnimatedCrossFade shows/hides text |
 
-- Icon: loyalty tag (white)
-- Text: "Welcome to LoyaltyLink"
-- Button: white "→ Get Started"
-
-### After State Change (after tap)
-![After](loyalty_link/screenshots/welcome_joined.png)
-
-- Icon: green heart (animated transition)
-- Text: "Welcome aboard! 🎉" (animated switch)
-- Button: green "✓ Joined ✓" (color + text change)
-
-**Only the Icon, Text, and Button widgets were rebuilt.** The Scaffold, AppBar, gradient Container, and Column remained untouched.
+**Meanwhile, ALL StatelessWidgets (AppHeader, StaticInfoCards) remain untouched** — they are never rebuilt during any of these interactions.
 
 ---
 
-## State Updates Demonstrated
+## Screenshots
 
-| Interaction | State Change | Widgets Rebuilt |
-|-------------|-------------|-----------------|
-| Tap "Get Started" | `_isJoined: false → true` | Icon, 2× Text, Button |
-| Tap "Joined ✓" | `_isJoined: true → false` | Icon, 2× Text, Button |
+### Initial State
+*(Add screenshot showing the demo screen with counter at 0, dark mode active, secret hidden)*
 
-The toggle is **bidirectional** — tapping again reverts to the original state, demonstrating that `setState()` triggers rebuilds in both directions.
+![Initial State](loyalty_link/screenshots/demo_initial.png)
+
+### After Interactions
+*(Add screenshot showing counter incremented, light mode toggled, secret revealed)*
+
+![After Interaction](loyalty_link/screenshots/demo_after.png)
 
 ---
 
 ## Reflection
 
-### How the Reactive Model Improves Performance
+### How do Stateful widgets make Flutter apps dynamic?
+StatefulWidget + `setState()` is the mechanism for **reactive UI updates**. When a user taps a button, the state variable changes, Flutter marks the widget as dirty, and only the affected subtree is rebuilt. This makes real-time interactions (counters, toggles, forms) possible without manually manipulating UI elements.
 
-1. **Partial rebuilds** — Flutter only re-renders widgets whose data changed, not the entire screen. This keeps frame rates at 60fps even on complex UIs.
-
-2. **Declarative approach** — you describe *what* the UI should look like for a given state. Flutter figures out *how* to update. No manual DOM manipulation needed.
-
-3. **Immutable widgets** — widgets themselves are immutable. When state changes, Flutter creates new widget instances and diffs them against the old tree. This makes the framework predictable and easy to debug.
-
-4. **Animation integration** — `AnimatedSwitcher` and `AnimatedContainer` hook directly into the reactive model. State change → rebuild → automatic animation.
+### Why separate static and reactive parts?
+1. **Performance** — StatelessWidgets are cheaper to render; isolating them avoids unnecessary rebuilds
+2. **Readability** — code is clearer when static labels are separate from interactive logic
+3. **Reusability** — `AppHeader` and `StaticInfoCard` can be reused anywhere without side effects
+4. **Testing** — StatelessWidgets are easier to unit test since they have no state to mock
