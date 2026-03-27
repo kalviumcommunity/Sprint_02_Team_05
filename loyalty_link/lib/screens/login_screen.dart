@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
-import 'dashboard_screen.dart';
 
 /// LoginScreen – email/password login form for LoyaltyLink.
 class LoginScreen extends StatefulWidget {
@@ -15,7 +14,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _auth = AuthService();
+  final AuthService _auth = AuthService();
+
   bool _loading = false;
   String? _error;
 
@@ -34,16 +34,22 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-        );
+        _showMessage('Login Successful');
+        // 🚫 No navigation here — AuthGate handles it
       }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
@@ -91,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Log in to your LoyaltyLink account',
                       style: TextStyle(
                         fontSize: 15,
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Colors.white.withOpacity(0.7),
                       ),
                     ),
                     const SizedBox(height: 36),
@@ -103,15 +109,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(12),
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
+                          color: Colors.red.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.red.withValues(alpha: 0.4)),
+                            color: Colors.red.withOpacity(0.4),
+                          ),
                         ),
                         child: Text(
                           _error!,
                           style: const TextStyle(
-                              color: Colors.redAccent, fontSize: 13),
+                            color: Colors.redAccent,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
 
@@ -135,8 +144,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       hint: 'Password',
                       icon: Icons.lock_outline,
                       obscure: true,
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Enter password' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter password';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 28),
 
@@ -159,12 +170,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 22,
                                 width: 22,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2.5),
+                                  strokeWidth: 2.5,
+                                ),
                               )
                             : const Text(
                                 'Login',
                                 style: TextStyle(
-                                    fontSize: 17, fontWeight: FontWeight.bold),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                       ),
                     ),
@@ -177,15 +191,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           "Don't have an account? ",
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: Colors.white.withOpacity(0.7),
                           ),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const SignupScreen()),
-                          ),
+                          onTap: () {
+                            Navigator.pushReplacementNamed(context, '/signup');
+                          },
                           child: const Text(
                             'Sign Up',
                             style: TextStyle(
@@ -223,10 +235,10 @@ class _LoginScreenState extends State<LoginScreen> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
         prefixIcon: Icon(icon, color: Colors.white70),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
+        fillColor: Colors.white.withOpacity(0.1),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
